@@ -6,6 +6,8 @@
     --text: #F8FAFC;
     --text-dim: #94A3B8;
     --gradient: linear-gradient(135deg, #6366F1 0%, #0EA5E9 100%);
+    --glass: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.08);
 }
 
 * {
@@ -36,7 +38,7 @@ header {
     width: 100%;
     top: 0;
     z-index: 1000;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 nav {
@@ -98,10 +100,10 @@ nav {
 }
 
 .btn-secondary {
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.05);
     color: var(--text);
     padding: 16px 32px;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .btn:hover {
@@ -111,33 +113,48 @@ nav {
 
 /* Hero */
 .hero {
-    padding: 180px 0 100px;
+    padding: 200px 0 120px;
     display: flex;
     align-items: center;
-    gap: 60px;
+    gap: 80px;
 }
 
 .hero-content {
-    flex: 1;
+    flex: 6;
+}
+
+.app-branding {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.mini-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
 }
 
 .badge {
-    background: rgba(99, 102, 241, 0.1);
+    background: var(--glass);
     color: var(--primary);
     padding: 8px 16px;
     border-radius: 100px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
     text-transform: uppercase;
-    margin-bottom: 24px;
-    display: inline-block;
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(10px);
 }
 
 h1 {
-    font-size: 64px;
-    line-height: 1.1;
-    margin-bottom: 24px;
+    font-size: 72px;
+    line-height: 1;
+    margin-bottom: 32px;
+    letter-spacing: -2px;
 }
 
 .text-gradient {
@@ -149,24 +166,66 @@ h1 {
 .hero p {
     font-size: 20px;
     color: var(--text-dim);
-    margin-bottom: 40px;
-    max-width: 500px;
+    margin-bottom: 48px;
+    max-width: 550px;
 }
 
-.hero-btns {
+.store-buttons {
     display: flex;
     gap: 16px;
 }
 
+.store-btn {
+    background: #000;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.store-btn:hover {
+    background: #111;
+    transform: translateY(-5px);
+    border-color: var(--primary);
+}
+
+.store-btn i {
+    width: 32px;
+    height: 32px;
+}
+
+.btn-text {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+
+.btn-text span {
+    font-size: 10px;
+    text-transform: uppercase;
+    opacity: 0.6;
+}
+
+.btn-text strong {
+    font-size: 16px;
+    letter-spacing: -0.5px;
+}
+
 .hero-image {
-    flex: 1;
+    flex: 5;
     position: relative;
 }
 
 .hero-image img {
     width: 100%;
-    border-radius: 32px;
-    box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+    border-radius: 40px;
+    box-shadow: 0 50px 100px rgba(0, 0, 0, 0.6);
+    border: 1px solid var(--glass-border);
 }
 
 /* Features */
@@ -190,7 +249,7 @@ h1 {
     background: var(--surface);
     padding: 40px;
     border-radius: 24px;
-    border: 1px solid rgba(255,255,255,0.05);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     transition: 0.3s;
 }
 
@@ -218,32 +277,78 @@ h1 {
     color: var(--text-dim);
 }
 
-/* Partner */
+/* Partner Section */
 .partner-section {
-    padding: 100px 0;
+    padding: 120px 0;
     background: linear-gradient(180deg, var(--bg) 0%, #0F172A 100%);
+    border-top: 1px solid var(--glass-border);
 }
 
-.partner-card {
-    background: var(--surface);
-    padding: 60px;
-    border-radius: 40px;
+.section-subtitle {
     text-align: center;
-    border: 1px solid rgba(255,255,255,0.05);
+    color: var(--text-dim);
+    margin-top: -40px;
+    margin-bottom: 60px;
 }
 
 .partner-logos {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 48px;
-    margin-top: 40px;
+    gap: 60px;
 }
 
-.partner-logos span {
-    font-size: 24px;
+.p-logo {
+    padding: 24px 48px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.p-logo span {
+    font-size: 20px;
     font-weight: 800;
-    opacity: 0.3;
+    opacity: 0.5;
+    letter-spacing: -0.5px;
+}
+
+/* Tech Stack */
+.tech-stack {
+    padding: 80px 0;
+}
+
+.tech-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+}
+
+.tech-item {
+    background: var(--glass);
+    padding: 32px;
+    border-radius: 24px;
+    text-align: center;
+    border: 1px solid var(--glass-border);
+}
+
+.tech-item i {
+    color: var(--primary);
+    width: 32px;
+    height: 32px;
+    margin-bottom: 16px;
+}
+
+.tech-item p {
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+}
+
+.text-center {
+    text-align: center;
 }
 
 /* CTA */
@@ -271,7 +376,7 @@ h1 {
 /* Footer */
 footer {
     padding: 80px 0 40px;
-    border-top: 1px solid rgba(255,255,255,0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .footer-grid {
@@ -286,7 +391,8 @@ footer {
     margin-top: 16px;
 }
 
-.footer-links h4, .footer-social h4 {
+.footer-links h4,
+.footer-social h4 {
     margin-bottom: 24px;
 }
 
@@ -316,7 +422,16 @@ footer {
         text-align: center;
         padding-top: 120px;
     }
-    h1 { font-size: 48px; }
-    .hero p { margin: 0 auto 40px; }
-    .hero-btns { justify-content: center; }
+
+    h1 {
+        font-size: 48px;
+    }
+
+    .hero p {
+        margin: 0 auto 40px;
+    }
+
+    .hero-btns {
+        justify-content: center;
+    }
 }
