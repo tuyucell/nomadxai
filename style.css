@@ -1,11 +1,11 @@
 :root {
-    --primary: #6366F1;
-    --secondary: #0EA5E9;
+    --primary: #4F46E5;
+    --secondary: #06B6D4;
     --bg: #020617;
     --surface: #0F172A;
     --text: #F8FAFC;
     --text-dim: #94A3B8;
-    --gradient: linear-gradient(135deg, #6366F1 0%, #0EA5E9 100%);
+    --gradient: linear-gradient(135deg, #4F46E5 0%, #06B6D4 100%);
     --glass: rgba(255, 255, 255, 0.03);
     --glass-border: rgba(255, 255, 255, 0.08);
 }
@@ -54,6 +54,7 @@ nav {
     letter-spacing: -0.5px;
     background: var(--gradient);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -160,6 +161,7 @@ h1 {
 .text-gradient {
     background: var(--gradient);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -413,6 +415,39 @@ footer {
     text-align: center;
     color: var(--text-dim);
     font-size: 14px;
+}
+
+/* Legal Pages */
+.legal-page {
+    background: var(--bg);
+    color: var(--text);
+}
+
+.legal-content {
+    padding: 180px 0 100px;
+}
+
+.legal-content h1 {
+    margin-bottom: 40px;
+    font-size: 48px;
+}
+
+.legal-content h2 {
+    margin-top: 40px;
+    margin-bottom: 20px;
+    color: var(--primary);
+}
+
+.legal-content p,
+.legal-content li {
+    color: var(--text-dim);
+    font-size: 16px;
+    line-height: 1.8;
+}
+
+.legal-content ul {
+    margin-left: 20px;
+    margin-bottom: 20px;
 }
 
 /* Responsive */
