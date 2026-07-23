@@ -22,25 +22,52 @@
         <img src="../assets/images/app-icon.png" alt="">
         <span>NomadX</span>
       </a>
-      <p class="eyebrow">Restricted access</p>
-      <h1 id="loginTitle">Control Room</h1>
-      <p class="login-copy">
-        Sign in with an approved NomadX owner or moderator account.
-      </p>
-      <form id="loginForm" class="login-form">
-        <label>
-          Email
-          <input id="emailInput" name="email" type="email" autocomplete="email" required>
-        </label>
-        <label>
-          Password
-          <input id="passwordInput" name="password" type="password" autocomplete="current-password" required minlength="6">
-        </label>
-        <button id="loginButton" class="button button-primary" type="submit">
-          Sign in securely
+      <div id="loginPanel">
+        <p class="eyebrow">Restricted access</p>
+        <h1 id="loginTitle">Control Room</h1>
+        <p class="login-copy">
+          Sign in with an approved NomadX owner or moderator account.
+        </p>
+        <form id="loginForm" class="login-form">
+          <label>
+            Email
+            <input id="emailInput" name="email" type="email" autocomplete="email" required>
+          </label>
+          <label>
+            Password
+            <input id="passwordInput" name="password" type="password" autocomplete="current-password" required minlength="6">
+          </label>
+          <button id="loginButton" class="button button-primary" type="submit">
+            Sign in securely
+          </button>
+        </form>
+        <button id="forgotPasswordButton" class="link-button" type="button">
+          Forgot your password?
         </button>
-      </form>
-      <p id="loginError" class="form-error" role="alert"></p>
+        <p id="loginError" class="form-error" role="alert"></p>
+      </div>
+
+      <div id="recoveryPanel" hidden>
+        <p class="eyebrow">Account recovery</p>
+        <h1>Set a new password</h1>
+        <p class="login-copy">
+          Choose a unique password with at least eight characters.
+        </p>
+        <form id="recoveryForm" class="login-form">
+          <label>
+            New password
+            <input id="newPasswordInput" type="password" autocomplete="new-password" required minlength="8">
+          </label>
+          <label>
+            Confirm new password
+            <input id="confirmPasswordInput" type="password" autocomplete="new-password" required minlength="8">
+          </label>
+          <button id="recoveryButton" class="button button-primary" type="submit">
+            Save new password
+          </button>
+        </form>
+        <p id="recoveryError" class="form-error" role="alert"></p>
+      </div>
       <p class="security-note">
         Access is checked server-side. This page does not contain a service-role key.
       </p>

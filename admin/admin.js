@@ -6,7 +6,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: true,
   },
 });
 
@@ -30,10 +30,17 @@ const appView = document.querySelector("#appView");
 const loginForm = document.querySelector("#loginForm");
 const loginButton = document.querySelector("#loginButton");
 const loginError = document.querySelector("#loginError");
+const loginPanel = document.querySelector("#loginPanel");
+const recoveryPanel = document.querySelector("#recoveryPanel");
+const recoveryForm = document.querySelector("#recoveryForm");
+const recoveryError = document.querySelector("#recoveryError");
 const sidebar = document.querySelector("#sidebar");
 const toast = document.querySelector("#toast");
 
 let toastTimer;
+let isRecoveryFlow =
+  new URLSearchParams(window.location.search).get("recovery") === "1" ||
+  window.location.hash.includes("type=recovery");
 
 function showToast(message, isError = false) {
   window.clearTimeout(toastTimer);
@@ -122,7 +129,18 @@ function showLogin(message = "") {
   state.context = null;
   appView.hidden = true;
   loginView.hidden = false;
+  loginPanel.hidden = false;
+  recoveryPanel.hidden = true;
   loginError.textContent = message;
+}
+
+function showRecovery(message = "") {
+  state.context = null;
+  appView.hidden = true;
+  loginView.hidden = false;
+  loginPanel.hidden = true;
+  recoveryPanel.hidden = false;
+  recoveryError.textContent = message;
 }
 
 function applyRoleAccess() {
@@ -469,6 +487,67 @@ loginForm.addEventListener("submit", async (event) => {
   setBusy(loginButton, false);
 });
 
+document.querySelector("#forgotPasswordButton").addEventListener("click", async () => {
+  const emailInput = document.querySelector("#emailInput");
+  const email = emailInput.value.trim();
+  loginError.classList.remove("is-success");
+  if (!email || !emailInput.checkValidity()) {
+    loginError.textContent = "Enter your NomadX account email first.";
+    emailInput.focus();
+    return;
+  }
+
+  const button = document.querySelector("#forgotPasswordButton");
+  setBusy(button, true, "Sending reset link…");
+  const redirectTo = `${window.location.origin}/admin/?recovery=1`;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) {
+    console.error("Password reset request failed", error);
+    loginError.textContent = "The reset email could not be sent. Try again shortly.";
+  } else {
+    loginError.classList.add("is-success");
+    loginError.textContent = "Reset email sent. Use only the newest link.";
+  }
+  setBusy(button, false);
+});
+
+recoveryForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  recoveryError.textContent = "";
+  const newPassword = document.querySelector("#newPasswordInput").value;
+  const confirmation = document.querySelector("#confirmPasswordInput").value;
+  if (newPassword.length < 8) {
+    recoveryError.textContent = "Use at least eight characters.";
+    return;
+  }
+  if (newPassword !== confirmation) {
+    recoveryError.textContent = "Passwords do not match.";
+    return;
+  }
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) {
+    recoveryError.textContent = "This reset link is invalid or expired. Request a new one.";
+    return;
+  }
+
+  const button = document.querySelector("#recoveryButton");
+  setBusy(button, true, "Saving…");
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) {
+    recoveryError.textContent = "The password could not be updated. Request a new link.";
+    setBusy(button, false);
+    return;
+  }
+
+  await supabase.auth.signOut();
+  isRecoveryFlow = false;
+  window.history.replaceState({}, document.title, "/admin/");
+  showLogin("Password updated. Sign in with your new password.");
+  loginError.classList.add("is-success");
+  setBusy(button, false);
+});
+
 document.querySelector("#signOutButton").addEventListener("click", async () => {
   await supabase.auth.signOut();
   showLogin();
@@ -498,6 +577,11 @@ document.querySelector("#reportStatusFilter").addEventListener("change", async (
 });
 
 supabase.auth.onAuthStateChange((event, session) => {
+  if (event === "PASSWORD_RECOVERY") {
+    isRecoveryFlow = true;
+    showRecovery();
+    return;
+  }
   if (event === "SIGNED_OUT") showLogin();
   if (event === "TOKEN_REFRESHED" && session && state.context) {
     // Existing data calls automatically use the refreshed access token.
@@ -505,4 +589,12 @@ supabase.auth.onAuthStateChange((event, session) => {
 });
 
 const { data: sessionData } = await supabase.auth.getSession();
-await enterAdmin(sessionData.session);
+if (isRecoveryFlow) {
+  showRecovery(
+    sessionData.session
+      ? ""
+      : "Validating your reset link…",
+  );
+} else {
+  await enterAdmin(sessionData.session);
+}

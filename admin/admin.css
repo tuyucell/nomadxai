@@ -212,6 +212,26 @@ textarea:focus {
   font-size: 13px;
 }
 
+.form-error.is-success {
+  color: #73dfb5;
+}
+
+.link-button {
+  display: block;
+  margin: 15px auto 0;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  color: #a9a1ff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.link-button:hover {
+  color: white;
+}
+
 .security-note {
   margin: 26px 0 0;
   padding-top: 20px;
@@ -943,4 +963,3 @@ tbody tr:hover {
     padding: 19px;
   }
 }
-
