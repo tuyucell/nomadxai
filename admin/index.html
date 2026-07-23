@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#070818">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data:; connect-src 'self' https://mewpnmaoihjksorvayjh.supabase.co wss://mewpnmaoihjksorvayjh.supabase.co; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+  >
+  <title>NomadX Control Room</title>
+  <link rel="icon" href="../assets/images/app-icon.png">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <main id="loginView" class="login-shell">
+    <section class="login-card" aria-labelledby="loginTitle">
+      <a class="brand brand-login" href="../index.html" aria-label="NomadX home">
+        <img src="../assets/images/app-icon.png" alt="">
+        <span>NomadX</span>
+      </a>
+      <p class="eyebrow">Restricted access</p>
+      <h1 id="loginTitle">Control Room</h1>
+      <p class="login-copy">
+        Sign in with an approved NomadX owner or moderator account.
+      </p>
+      <form id="loginForm" class="login-form">
+        <label>
+          Email
+          <input id="emailInput" name="email" type="email" autocomplete="email" required>
+        </label>
+        <label>
+          Password
+          <input id="passwordInput" name="password" type="password" autocomplete="current-password" required minlength="6">
+        </label>
+        <button id="loginButton" class="button button-primary" type="submit">
+          Sign in securely
+        </button>
+      </form>
+      <p id="loginError" class="form-error" role="alert"></p>
+      <p class="security-note">
+        Access is checked server-side. This page does not contain a service-role key.
+      </p>
+    </section>
+  </main>
+
+  <div id="appView" class="app-shell" hidden>
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-top">
+        <a class="brand" href="../index.html" aria-label="NomadX home">
+          <img src="../assets/images/app-icon.png" alt="">
+          <span>NomadX</span>
+        </a>
+        <span class="environment">Production</span>
+      </div>
+
+      <nav class="nav-list" aria-label="Admin navigation">
+        <button class="nav-item is-active" type="button" data-section="overview">
+          <span class="nav-icon">⌁</span> Overview
+        </button>
+        <button class="nav-item" type="button" data-section="flags">
+          <span class="nav-icon">⚑</span> Feature flags
+        </button>
+        <button class="nav-item" type="button" data-section="users">
+          <span class="nav-icon">◎</span> Users
+        </button>
+        <button class="nav-item" type="button" data-section="reports" data-role="moderation">
+          <span class="nav-icon">!</span> Reports
+          <span id="reportBadge" class="badge" hidden>0</span>
+        </button>
+        <button class="nav-item" type="button" data-section="activity">
+          <span class="nav-icon">↗</span> Activity
+        </button>
+        <button class="nav-item" type="button" data-section="audit" data-role="owner">
+          <span class="nav-icon">⌘</span> Audit log
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="admin-identity">
+          <span id="adminInitial" class="avatar">N</span>
+          <span>
+            <strong id="adminEmail">—</strong>
+            <small id="adminRole">—</small>
+          </span>
+        </div>
+        <button id="signOutButton" class="button button-quiet" type="button">Sign out</button>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <button id="menuButton" class="menu-button" type="button" aria-label="Open menu">☰</button>
+        <div>
+          <p class="eyebrow">NomadX operations</p>
+          <h1 id="sectionTitle">Overview</h1>
+        </div>
+        <div class="topbar-actions">
+          <span id="lastRefresh" class="last-refresh">Not refreshed</span>
+          <button id="refreshButton" class="button button-secondary" type="button">Refresh</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section id="section-overview" class="panel-section is-active">
+          <div id="metricGrid" class="metric-grid" aria-live="polite"></div>
+          <div class="overview-grid">
+            <article class="panel chart-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">Last 7 days</p>
+                  <h2>Product events</h2>
+                </div>
+                <span class="privacy-chip">Opt-in only</span>
+              </div>
+              <div id="eventChart" class="event-chart"></div>
+            </article>
+            <article class="panel health-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">Guardrails</p>
+                  <h2>Privacy posture</h2>
+                </div>
+              </div>
+              <ul class="health-list">
+                <li><span class="status-dot status-ok"></span><span>Precise location is rejected from analytics payloads.</span></li>
+                <li><span class="status-dot status-ok"></span><span>Message and route-note content is never tracked.</span></li>
+                <li><span class="status-dot status-ok"></span><span>Opting out deletes the user’s event history.</span></li>
+                <li><span class="status-dot status-warn"></span><span>Run the 90-day cleanup job on a schedule.</span></li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section id="section-flags" class="panel-section">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Runtime configuration</p>
+              <h2>Feature flags</h2>
+              <p>Changes are audited and picked up when the mobile app refreshes its configuration.</p>
+            </div>
+          </div>
+          <div id="flagGrid" class="flag-grid"></div>
+        </section>
+
+        <section id="section-users" class="panel-section">
+          <div class="section-intro section-intro-row">
+            <div>
+              <p class="eyebrow">Accounts</p>
+              <h2>User tracker</h2>
+              <p>Account status and consent-based product activity. No live location tracking.</p>
+            </div>
+            <form id="userSearchForm" class="search-form">
+              <input id="userSearchInput" type="search" placeholder="Search email or username" aria-label="Search users">
+              <button class="button button-secondary" type="submit">Search</button>
+            </form>
+          </div>
+          <div class="panel table-panel">
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Joined</th>
+                    <th>Last activity</th>
+                    <th>Client</th>
+                    <th>Consent</th>
+                    <th>Sessions</th>
+                    <th>Routes</th>
+                  </tr>
+                </thead>
+                <tbody id="userTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-reports" class="panel-section">
+          <div class="section-intro section-intro-row">
+            <div>
+              <p class="eyebrow">Trust &amp; safety</p>
+              <h2>User reports</h2>
+              <p>Status and moderator notes are written to the immutable application audit trail.</p>
+            </div>
+            <label class="filter-label">
+              Status
+              <select id="reportStatusFilter">
+                <option value="">All</option>
+                <option value="open">Open</option>
+                <option value="reviewing">Reviewing</option>
+                <option value="resolved">Resolved</option>
+                <option value="dismissed">Dismissed</option>
+              </select>
+            </label>
+          </div>
+          <div id="reportList" class="report-list"></div>
+        </section>
+
+        <section id="section-activity" class="panel-section">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Consent-based telemetry</p>
+              <h2>Recent activity</h2>
+              <p>Only server-allowlisted event names and non-sensitive properties are accepted.</p>
+            </div>
+          </div>
+          <div class="panel table-panel">
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>User</th>
+                    <th>Client</th>
+                    <th>Properties</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody id="activityTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-audit" class="panel-section">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Owner access</p>
+              <h2>Audit log</h2>
+              <p>Feature configuration and moderation changes are recorded here.</p>
+            </div>
+          </div>
+          <div class="panel table-panel">
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Admin</th>
+                    <th>Target</th>
+                    <th>Change</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody id="auditTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
