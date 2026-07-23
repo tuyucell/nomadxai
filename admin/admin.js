@@ -13,16 +13,19 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 const state = {
   context: null,
   summary: null,
+  announcements: [],
   currentSection: "overview",
 };
 
 const sectionTitles = {
   overview: "Overview",
   flags: "Feature flags",
+  announcements: "Announcements",
   users: "Users",
   reports: "Reports",
   activity: "Activity",
   audit: "Audit log",
+  team: "Admin team",
 };
 
 const loginView = document.querySelector("#loginView");
@@ -125,13 +128,14 @@ async function enterAdmin(session) {
   }
 }
 
-function showLogin(message = "") {
+function showLogin(message = "", isSuccess = false) {
   state.context = null;
   appView.hidden = true;
   loginView.hidden = false;
   loginPanel.hidden = false;
   recoveryPanel.hidden = true;
   loginError.textContent = message;
+  loginError.classList.toggle("is-success", isSuccess);
 }
 
 function showRecovery(message = "") {
@@ -166,8 +170,13 @@ async function refreshAll() {
       loadFeatureFlags(),
       loadUsers(),
       loadActivity(),
+      loadActivityInsights(),
+      ["owner", "moderator"].includes(state.context.role)
+        ? loadAnnouncements()
+        : Promise.resolve(),
       ["owner", "moderator"].includes(state.context.role) ? loadReports() : Promise.resolve(),
       state.context.role === "owner" ? loadAudit() : Promise.resolve(),
+      state.context.role === "owner" ? loadAdmins() : Promise.resolve(),
     ]);
     document.querySelector("#lastRefresh").textContent =
       `Updated ${new Intl.DateTimeFormat("en", { timeStyle: "short" }).format(new Date())}`;
@@ -228,6 +237,11 @@ async function loadFeatureFlags() {
   const grid = document.querySelector("#flagGrid");
   grid.replaceChildren();
   flags.forEach((flag) => grid.append(buildFlagCard(flag)));
+  const analyticsFlag = flags.find((flag) => flag.key === "user_activity_tracking");
+  const retentionInput = document.querySelector("#retentionDaysInput");
+  if (analyticsFlag?.config?.retention_days && retentionInput) {
+    retentionInput.value = analyticsFlag.config.retention_days;
+  }
 }
 
 function buildFlagCard(flag) {
@@ -248,11 +262,17 @@ function buildFlagCard(flag) {
   switchLabel.append(toggle, makeElement("span", "switch-track"));
   header.append(title, switchLabel);
 
-  const configLabel = makeElement("label", "flag-config-label", "Public config (JSON)");
+  const structuredConfig = makeElement("div", "structured-config");
+  const structuredInputs = buildStructuredConfigFields(flag, structuredConfig);
+
+  const advancedConfig = makeElement("details", "advanced-config");
+  const summary = makeElement("summary", "", "Advanced JSON");
+  const configLabel = makeElement("label", "flag-config-label", "Public config");
   const textarea = makeElement("textarea");
   textarea.value = JSON.stringify(flag.config || {}, null, 2);
   textarea.disabled = state.context.role !== "owner";
   configLabel.append(textarea);
+  advancedConfig.append(summary, configLabel);
 
   const actions = makeElement("div", "flag-actions");
   const saveButton = makeElement("button", "button button-secondary", "Save");
@@ -265,8 +285,24 @@ function buildFlagCard(flag) {
       if (!config || Array.isArray(config) || typeof config !== "object") {
         throw new Error("Config must be a JSON object.");
       }
+      Object.entries(structuredInputs).forEach(([key, input]) => {
+        const value = Number.parseInt(input.value, 10);
+        if (!Number.isFinite(value)) {
+          throw new Error(`${key.replaceAll("_", " ")} must be a number.`);
+        }
+        config[key] = value;
+      });
     } catch (error) {
       showToast(error.message || "Invalid JSON config.", true);
+      return;
+    }
+    if (
+      toggle.checked !== flag.enabled &&
+      ["ai_daily_route", "social_messaging", "user_activity_tracking"].includes(flag.key) &&
+      !window.confirm(
+        `${toggle.checked ? "Enable" : "Disable"} ${flag.key.replaceAll("_", " ")} in production?`,
+      )
+    ) {
       return;
     }
     setBusy(saveButton, true, "Saving…");
@@ -286,8 +322,38 @@ function buildFlagCard(flag) {
     }
   });
   actions.append(saveButton);
-  card.append(header, configLabel, actions);
+  card.append(header, structuredConfig, advancedConfig, actions);
   return card;
+}
+
+function buildStructuredConfigFields(flag, container) {
+  const schemas = {
+    ai_daily_route: [
+      ["free_daily_limit", "Free daily limit", 1, 100],
+      ["pro_daily_limit", "Pro daily limit", 1, 1000],
+      ["max_stops", "Maximum stops", 2, 10],
+    ],
+    user_activity_tracking: [
+      ["retention_days", "Retention days", 30, 365],
+    ],
+    google_places_provider: [
+      ["rollout_percent", "Rollout percent", 0, 100],
+    ],
+  };
+  const inputs = {};
+  (schemas[flag.key] || []).forEach(([key, labelText, minimum, maximum]) => {
+    const label = makeElement("label", "", labelText);
+    const input = makeElement("input");
+    input.type = "number";
+    input.min = minimum;
+    input.max = maximum;
+    input.value = flag.config?.[key] ?? minimum;
+    input.disabled = state.context.role !== "owner";
+    label.append(input);
+    container.append(label);
+    inputs[key] = input;
+  });
+  return inputs;
 }
 
 async function loadUsers(searchText = "") {
@@ -451,6 +517,181 @@ async function loadAudit() {
   });
 }
 
+async function loadAnnouncements() {
+  state.announcements = await callRpc("admin_list_announcements");
+  const list = document.querySelector("#announcementList");
+  list.replaceChildren();
+  if (!state.announcements.length) {
+    list.append(makeElement("div", "panel empty-state", "No announcements yet."));
+    resetAnnouncementForm();
+    return;
+  }
+
+  state.announcements.forEach((announcement) => {
+    const card = makeElement("article", "announcement-card");
+    const meta = makeElement("div", "report-meta");
+    meta.append(
+      makeElement(
+        "span",
+        `pill ${announcement.enabled ? "pill-positive" : "pill-negative"}`,
+        announcement.enabled ? "Enabled" : "Disabled",
+      ),
+      makeElement("span", "pill", announcement.severity),
+      makeElement("span", "table-secondary", formatDate(announcement.starts_at, true)),
+    );
+    const actions = makeElement("div", "announcement-card-actions");
+    const editButton = makeElement("button", "button button-secondary", "Edit");
+    editButton.type = "button";
+    editButton.addEventListener("click", () => editAnnouncement(announcement));
+    actions.append(editButton);
+    if (announcement.enabled) {
+      const disableButton = makeElement("button", "button button-danger", "Disable");
+      disableButton.type = "button";
+      disableButton.addEventListener("click", async () => {
+        if (!window.confirm("Disable this announcement immediately?")) return;
+        setBusy(disableButton, true, "Disabling…");
+        try {
+          await callRpc("admin_disable_announcement", {
+            announcement_id: announcement.id,
+          });
+          showToast("Announcement disabled.");
+          await Promise.all([
+            loadAnnouncements(),
+            state.context.role === "owner" ? loadAudit() : Promise.resolve(),
+          ]);
+        } catch (error) {
+          showToast(error.message || "Announcement could not be disabled.", true);
+        } finally {
+          setBusy(disableButton, false);
+        }
+      });
+      actions.append(disableButton);
+    }
+    card.append(
+      meta,
+      makeElement("h3", "", announcement.title_en),
+      makeElement("p", "", announcement.body_en),
+      actions,
+    );
+    list.append(card);
+  });
+
+  if (!document.querySelector("#announcementStarts").value) {
+    resetAnnouncementForm();
+  }
+}
+
+function editAnnouncement(announcement) {
+  document.querySelector("#announcementId").value = announcement.id;
+  document.querySelector("#announcementTitleEn").value = announcement.title_en;
+  document.querySelector("#announcementTitleTr").value = announcement.title_tr;
+  document.querySelector("#announcementBodyEn").value = announcement.body_en;
+  document.querySelector("#announcementBodyTr").value = announcement.body_tr;
+  document.querySelector("#announcementSeverity").value = announcement.severity;
+  document.querySelector("#announcementLink").value = announcement.link_url || "";
+  document.querySelector("#announcementStarts").value = toDateTimeLocal(announcement.starts_at);
+  document.querySelector("#announcementEnds").value = toDateTimeLocal(announcement.ends_at);
+  document.querySelector("#announcementEnabled").checked = announcement.enabled;
+  document.querySelector("#announcementFormTitle").textContent = "Edit announcement";
+  document.querySelector("#announcementForm").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function resetAnnouncementForm() {
+  const form = document.querySelector("#announcementForm");
+  form.reset();
+  document.querySelector("#announcementId").value = "";
+  document.querySelector("#announcementEnabled").checked = true;
+  document.querySelector("#announcementStarts").value = toDateTimeLocal(new Date());
+  document.querySelector("#announcementFormTitle").textContent = "New announcement";
+}
+
+function toDateTimeLocal(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+async function loadActivityInsights() {
+  const insights = await callRpc("admin_activity_insights", {
+    lookback_days: 30,
+  });
+  const topEvent = insights.events_by_name?.[0];
+  const topPlatform = insights.users_by_platform?.[0];
+  const metrics = [
+    ["Opted-in users", insights.opted_in_users || 0],
+    ["Events · 30 days", insights.event_count || 0],
+    [
+      "Top signal",
+      topEvent ? `${topEvent.name} · ${topEvent.count}` : "No events",
+    ],
+    [
+      "Top platform",
+      topPlatform ? `${topPlatform.platform} · ${topPlatform.count}` : "No data",
+    ],
+  ];
+  const grid = document.querySelector("#activityInsightGrid");
+  grid.replaceChildren();
+  metrics.forEach(([label, value]) => {
+    const card = makeElement("article", "mini-metric");
+    card.append(
+      makeElement("small", "", label),
+      makeElement("strong", "", value),
+    );
+    grid.append(card);
+  });
+}
+
+async function loadAdmins() {
+  if (state.context.role !== "owner") return;
+  const admins = await callRpc("admin_list_admins");
+  const body = document.querySelector("#adminTableBody");
+  body.replaceChildren();
+  admins.forEach((admin) => {
+    const row = document.createElement("tr");
+    const identity = document.createElement("td");
+    identity.append(
+      makeElement("span", "table-primary", admin.email),
+      makeElement(
+        "span",
+        "table-secondary",
+        admin.user_id === state.context.user_id ? "Current account" : admin.user_id,
+      ),
+    );
+    const roleCell = document.createElement("td");
+    roleCell.append(makeElement("span", "pill", admin.role));
+    const actionCell = document.createElement("td");
+    if (admin.user_id !== state.context.user_id) {
+      const removeButton = makeElement("button", "button button-danger", "Remove");
+      removeButton.type = "button";
+      removeButton.addEventListener("click", async () => {
+        if (!window.confirm(`Remove admin access for ${admin.email}?`)) return;
+        setBusy(removeButton, true, "Removing…");
+        try {
+          await callRpc("admin_remove_admin", {
+            target_user_id: admin.user_id,
+          });
+          showToast("Admin access removed.");
+          await Promise.all([loadAdmins(), loadAudit()]);
+        } catch (error) {
+          showToast(error.message || "Admin access could not be removed.", true);
+        } finally {
+          setBusy(removeButton, false);
+        }
+      });
+      actionCell.append(removeButton);
+    }
+    row.append(
+      identity,
+      roleCell,
+      makeElement("td", "", formatDate(admin.created_at)),
+      actionCell,
+    );
+    body.append(row);
+  });
+}
+
 function emptyTableRow(message, colspan) {
   const row = makeElement("tr", "empty-row");
   const cell = makeElement("td", "", message);
@@ -474,6 +715,7 @@ function switchSection(sectionName) {
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   loginError.textContent = "";
+  loginError.classList.remove("is-success");
   setBusy(loginButton, true, "Signing in…");
   const email = document.querySelector("#emailInput").value.trim();
   const password = document.querySelector("#passwordInput").value;
@@ -543,8 +785,7 @@ recoveryForm.addEventListener("submit", async (event) => {
   await supabase.auth.signOut();
   isRecoveryFlow = false;
   window.history.replaceState({}, document.title, "/admin/");
-  showLogin("Password updated. Sign in with your new password.");
-  loginError.classList.add("is-success");
+  showLogin("Password updated. Sign in with your new password.", true);
   setBusy(button, false);
 });
 
@@ -573,6 +814,98 @@ document.querySelector("#reportStatusFilter").addEventListener("change", async (
     await loadReports();
   } catch (error) {
     showToast(error.message || "Reports could not be filtered.", true);
+  }
+});
+
+document.querySelector("#announcementCancel").addEventListener("click", resetAnnouncementForm);
+document.querySelector("#announcementForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const startsValue = document.querySelector("#announcementStarts").value;
+  const endsValue = document.querySelector("#announcementEnds").value;
+  const linkValue = document.querySelector("#announcementLink").value.trim();
+  if (linkValue && !linkValue.startsWith("https://")) {
+    showToast("Announcement links must start with https://", true);
+    return;
+  }
+  if (endsValue && new Date(endsValue) <= new Date(startsValue)) {
+    showToast("The end time must be after the start time.", true);
+    return;
+  }
+
+  const button = document.querySelector("#announcementSave");
+  setBusy(button, true, "Saving…");
+  try {
+    await callRpc("admin_upsert_announcement", {
+      announcement_id: document.querySelector("#announcementId").value || null,
+      announcement_title_en: document.querySelector("#announcementTitleEn").value.trim(),
+      announcement_title_tr: document.querySelector("#announcementTitleTr").value.trim(),
+      announcement_body_en: document.querySelector("#announcementBodyEn").value.trim(),
+      announcement_body_tr: document.querySelector("#announcementBodyTr").value.trim(),
+      announcement_severity: document.querySelector("#announcementSeverity").value,
+      announcement_link_url: linkValue || null,
+      announcement_enabled: document.querySelector("#announcementEnabled").checked,
+      announcement_starts_at: new Date(startsValue).toISOString(),
+      announcement_ends_at: endsValue ? new Date(endsValue).toISOString() : null,
+    });
+    showToast("Announcement saved.");
+    resetAnnouncementForm();
+    await Promise.all([
+      loadAnnouncements(),
+      state.context.role === "owner" ? loadAudit() : Promise.resolve(),
+    ]);
+  } catch (error) {
+    console.error("Announcement save failed", error);
+    showToast(error.message || "Announcement could not be saved.", true);
+  } finally {
+    setBusy(button, false);
+  }
+});
+
+document.querySelector("#pruneActivityButton").addEventListener("click", async () => {
+  const input = document.querySelector("#retentionDaysInput");
+  const retentionDays = Number.parseInt(input.value, 10);
+  if (!Number.isInteger(retentionDays) || retentionDays < 30 || retentionDays > 365) {
+    showToast("Retention must be between 30 and 365 days.", true);
+    return;
+  }
+  if (!window.confirm(`Permanently delete analytics events older than ${retentionDays} days?`)) {
+    return;
+  }
+  const button = document.querySelector("#pruneActivityButton");
+  setBusy(button, true, "Cleaning…");
+  try {
+    const deleted = await callRpc("admin_prune_activity", {
+      retention_days: retentionDays,
+    });
+    showToast(`${deleted || 0} expired events deleted.`);
+    await Promise.all([loadActivity(), loadActivityInsights(), loadAudit()]);
+  } catch (error) {
+    showToast(error.message || "Expired events could not be deleted.", true);
+  } finally {
+    setBusy(button, false);
+  }
+});
+
+document.querySelector("#adminRoleForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = document.querySelector("#adminRoleSave");
+  const email = document.querySelector("#adminRoleEmail").value.trim();
+  const role = document.querySelector("#adminRoleSelect").value;
+  if (!window.confirm(`Set ${email} as ${role}?`)) return;
+  setBusy(button, true, "Saving…");
+  try {
+    await callRpc("admin_set_admin_role", {
+      account_email: email,
+      next_role: role,
+    });
+    document.querySelector("#adminRoleForm").reset();
+    showToast("Admin role saved.");
+    await Promise.all([loadAdmins(), loadAudit()]);
+  } catch (error) {
+    console.error("Admin role update failed", error);
+    showToast(error.message || "Admin role could not be saved.", true);
+  } finally {
+    setBusy(button, false);
   }
 });
 

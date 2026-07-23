@@ -91,6 +91,9 @@
         <button class="nav-item" type="button" data-section="flags">
           <span class="nav-icon">⚑</span> Feature flags
         </button>
+        <button class="nav-item" type="button" data-section="announcements" data-role="moderation">
+          <span class="nav-icon">◉</span> Announcements
+        </button>
         <button class="nav-item" type="button" data-section="users">
           <span class="nav-icon">◎</span> Users
         </button>
@@ -103,6 +106,9 @@
         </button>
         <button class="nav-item" type="button" data-section="audit" data-role="owner">
           <span class="nav-icon">⌘</span> Audit log
+        </button>
+        <button class="nav-item" type="button" data-section="team" data-role="owner">
+          <span class="nav-icon">♙</span> Admin team
         </button>
       </nav>
 
@@ -173,6 +179,77 @@
           <div id="flagGrid" class="flag-grid"></div>
         </section>
 
+        <section id="section-announcements" class="panel-section">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Mobile communication</p>
+              <h2>App announcements</h2>
+              <p>Publish one bilingual notice on the mobile dashboard. Scheduling uses your browser’s local time.</p>
+            </div>
+          </div>
+          <div class="operations-grid">
+            <form id="announcementForm" class="panel operation-form">
+              <input id="announcementId" type="hidden">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">Editor</p>
+                  <h2 id="announcementFormTitle">New announcement</h2>
+                </div>
+                <span class="privacy-chip">EN + TR</span>
+              </div>
+              <div class="form-grid">
+                <label>
+                  English title
+                  <input id="announcementTitleEn" maxlength="120" required>
+                </label>
+                <label>
+                  Turkish title
+                  <input id="announcementTitleTr" maxlength="120" required>
+                </label>
+                <label>
+                  English message
+                  <textarea id="announcementBodyEn" maxlength="700" required></textarea>
+                </label>
+                <label>
+                  Turkish message
+                  <textarea id="announcementBodyTr" maxlength="700" required></textarea>
+                </label>
+                <label>
+                  Severity
+                  <select id="announcementSeverity">
+                    <option value="info">Info</option>
+                    <option value="warning">Warning</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </label>
+                <label>
+                  HTTPS link (optional)
+                  <input id="announcementLink" type="url" placeholder="https://">
+                </label>
+                <label>
+                  Starts
+                  <input id="announcementStarts" type="datetime-local" required>
+                </label>
+                <label>
+                  Ends (optional)
+                  <input id="announcementEnds" type="datetime-local">
+                </label>
+              </div>
+              <label class="inline-check">
+                <input id="announcementEnabled" type="checkbox" checked>
+                Publish when the schedule is active
+              </label>
+              <div class="form-actions">
+                <button id="announcementCancel" class="button button-quiet" type="button">Clear</button>
+                <button id="announcementSave" class="button button-primary" type="submit">Save announcement</button>
+              </div>
+            </form>
+            <div>
+              <div id="announcementList" class="announcement-list"></div>
+            </div>
+          </div>
+        </section>
+
         <section id="section-users" class="panel-section">
           <div class="section-intro section-intro-row">
             <div>
@@ -234,6 +311,23 @@
               <p>Only server-allowlisted event names and non-sensitive properties are accepted.</p>
             </div>
           </div>
+          <div class="activity-operations">
+            <div id="activityInsightGrid" class="mini-metric-grid"></div>
+            <article class="panel retention-card" data-role="owner">
+              <div>
+                <p class="eyebrow">Data retention</p>
+                <h3>Delete expired events</h3>
+                <p>Removes events older than the selected period. User summaries remain.</p>
+              </div>
+              <div class="retention-controls">
+                <label>
+                  Days
+                  <input id="retentionDaysInput" type="number" min="30" max="365" value="90">
+                </label>
+                <button id="pruneActivityButton" class="button button-danger" type="button">Run cleanup</button>
+              </div>
+            </article>
+          </div>
           <div class="panel table-panel">
             <div class="table-scroll">
               <table>
@@ -273,6 +367,46 @@
                   </tr>
                 </thead>
                 <tbody id="auditTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-team" class="panel-section">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Owner access</p>
+              <h2>Admin team</h2>
+              <p>Add only confirmed NomadX accounts. Your own owner access cannot be removed from this panel.</p>
+            </div>
+          </div>
+          <form id="adminRoleForm" class="panel team-form">
+            <label>
+              Confirmed NomadX account email
+              <input id="adminRoleEmail" type="email" autocomplete="off" required>
+            </label>
+            <label>
+              Role
+              <select id="adminRoleSelect">
+                <option value="analyst">Analyst</option>
+                <option value="moderator">Moderator</option>
+                <option value="owner">Owner</option>
+              </select>
+            </label>
+            <button id="adminRoleSave" class="button button-primary" type="submit">Add or update</button>
+          </form>
+          <div class="panel table-panel">
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Admin</th>
+                    <th>Role</th>
+                    <th>Added</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="adminTableBody"></tbody>
               </table>
             </div>
           </div>

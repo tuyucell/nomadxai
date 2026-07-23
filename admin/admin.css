@@ -647,6 +647,32 @@ textarea:focus {
   margin-top: 18px;
 }
 
+.structured-config {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.structured-config:empty {
+  display: none;
+}
+
+.advanced-config {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.advanced-config summary {
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.advanced-config textarea {
+  margin-top: 10px;
+}
+
 .flag-actions {
   display: flex;
   justify-content: flex-end;
@@ -874,12 +900,159 @@ tbody tr:hover {
   color: #ff9caa;
 }
 
+.operations-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.68fr);
+  gap: 18px;
+}
+
+.operation-form {
+  padding: 23px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+  margin-top: 24px;
+}
+
+.inline-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 17px;
+}
+
+.inline-check input {
+  width: 18px;
+  min-height: 18px;
+  accent-color: var(--primary);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.form-actions .button-quiet {
+  width: auto;
+}
+
+.announcement-list {
+  display: grid;
+  gap: 12px;
+}
+
+.announcement-card {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(150deg, rgba(21, 24, 49, 0.88), rgba(12, 14, 32, 0.92));
+}
+
+.announcement-card h3 {
+  margin: 10px 0 6px;
+  font-size: 14px;
+}
+
+.announcement-card p {
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.announcement-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.announcement-card-actions .button {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+
+.activity-operations {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.55fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.mini-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mini-metric {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.mini-metric strong {
+  display: block;
+  margin-top: 12px;
+  font-size: 25px;
+}
+
+.retention-card {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 19px;
+}
+
+.retention-card h3 {
+  margin: 0 0 7px;
+  font-size: 15px;
+}
+
+.retention-card p {
+  max-width: 390px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.retention-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+}
+
+.retention-controls input {
+  width: 88px;
+}
+
+.team-form {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 180px auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 18px;
+}
+
 @media (max-width: 1050px) {
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-grid,
+  .activity-operations {
     grid-template-columns: 1fr;
   }
 }
@@ -934,6 +1107,10 @@ tbody tr:hover {
   .report-card {
     grid-template-columns: 1fr;
   }
+
+  .team-form {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 540px) {
@@ -956,6 +1133,12 @@ tbody tr:hover {
 
   .event-chart {
     gap: 7px;
+  }
+
+  .form-grid,
+  .structured-config,
+  .mini-metric-grid {
+    grid-template-columns: 1fr;
   }
 
   .chart-panel,
