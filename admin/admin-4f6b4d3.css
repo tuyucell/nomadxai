@@ -859,9 +859,26 @@ tbody tr:hover {
   white-space: pre-wrap;
 }
 
+.report-content-preview {
+  margin: 16px 0 0;
+  padding: 13px 15px;
+  border-left: 3px solid var(--primary);
+  border-radius: 0 12px 12px 0;
+  background: rgba(7, 8, 24, 0.65);
+  color: #e6e8f4;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .report-controls {
   display: grid;
   gap: 11px;
+}
+
+.report-controls .form-actions {
+  flex-wrap: wrap;
 }
 
 .properties {

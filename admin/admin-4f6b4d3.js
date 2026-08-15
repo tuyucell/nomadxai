@@ -287,6 +287,10 @@ function buildFlagCard(flag) {
         throw new Error("Config must be a JSON object.");
       }
       Object.entries(structuredInputs).forEach(([key, input]) => {
+        if (input.type === "checkbox") {
+          config[key] = input.checked;
+          return;
+        }
         const value = Number.parseInt(input.value, 10);
         if (!Number.isFinite(value)) {
           throw new Error(`${key.replaceAll("_", " ")} must be a number.`);
@@ -299,7 +303,6 @@ function buildFlagCard(flag) {
     }
     if (
       toggle.checked !== flag.enabled &&
-      ["ai_daily_route", "social_messaging", "user_activity_tracking"].includes(flag.key) &&
       !window.confirm(
         `${toggle.checked ? "Enable" : "Disable"} ${flag.key.replaceAll("_", " ")} in production?`,
       )
@@ -340,15 +343,22 @@ function buildStructuredConfigFields(flag, container) {
     google_places_provider: [
       ["rollout_percent", "Rollout percent", 0, 100],
     ],
+    country_chat: [
+      ["requires_pro", "Pro members only", null, null, "checkbox"],
+    ],
   };
   const inputs = {};
-  (schemas[flag.key] || []).forEach(([key, labelText, minimum, maximum]) => {
+  (schemas[flag.key] || []).forEach(([key, labelText, minimum, maximum, type]) => {
     const label = makeElement("label", "", labelText);
     const input = makeElement("input");
-    input.type = "number";
-    input.min = minimum;
-    input.max = maximum;
-    input.value = flag.config?.[key] ?? minimum;
+    input.type = type || "number";
+    if (input.type === "checkbox") {
+      input.checked = flag.config?.[key] === true;
+    } else {
+      input.min = minimum;
+      input.max = maximum;
+      input.value = flag.config?.[key] ?? minimum;
+    }
     input.disabled = state.context.role !== "owner";
     label.append(input);
     container.append(label);
@@ -433,6 +443,9 @@ async function loadReports() {
     report_status: status,
     page_size: 50,
   });
+  const openCount = reports.filter((report) => ["open", "reviewing"].includes(report.status)).length;
+  reportBadge.textContent = String(openCount);
+  reportBadge.hidden = openCount === 0;
   const list = document.querySelector("#reportList");
   list.replaceChildren();
   if (!reports.length) {
@@ -448,6 +461,7 @@ function buildReportCard(report) {
   const meta = makeElement("div", "report-meta");
   meta.append(
     makeElement("span", `pill ${report.status === "open" ? "pill-negative" : ""}`, report.status),
+    makeElement("span", "pill", report.report_type === "content" ? (report.content_type || "content") : "user"),
     makeElement("span", "pill", report.category),
     makeElement("span", "table-secondary", formatDate(report.created_at, true)),
   );
@@ -456,14 +470,23 @@ function buildReportCard(report) {
     makeElement("h3", "", `${report.reporter_username || "Unknown"} reported ${report.reported_username || "Unknown"}`),
     makeElement("p", "report-details", report.details || "No additional details."),
   );
+  if (report.content_snapshot) {
+    content.append(makeElement("blockquote", "report-content-preview", report.content_snapshot));
+  }
+  if (report.is_suspended) {
+    const suspensionLabel = report.suspended_until
+      ? `Suspended until ${formatDate(report.suspended_until, true)}`
+      : "Suspended indefinitely";
+    content.append(makeElement("p", "pill pill-negative", suspensionLabel));
+  }
 
   const controls = makeElement("div", "report-controls");
   const statusLabel = makeElement("label", "", "Status");
   const select = makeElement("select");
-  ["open", "reviewing", "resolved", "dismissed"].forEach((value) => {
+  ["reviewing", "resolved", "dismissed"].forEach((value) => {
     const option = makeElement("option", "", value);
     option.value = value;
-    option.selected = value === report.status;
+    option.selected = value === (report.status === "open" ? "reviewing" : report.status);
     select.append(option);
   });
   statusLabel.append(select);
@@ -472,26 +495,80 @@ function buildReportCard(report) {
   note.maxLength = 2000;
   note.value = report.moderator_note || "";
   noteLabel.append(note);
-  const save = makeElement("button", "button button-secondary", "Save review");
-  save.type = "button";
-  save.addEventListener("click", async () => {
-    setBusy(save, true, "Saving…");
+  const durationLabel = makeElement("label", "", "Suspension");
+  const duration = makeElement("select");
+  [
+    [24, "24 hours"],
+    [168, "7 days"],
+    [720, "30 days"],
+    ["", "Indefinite"],
+  ].forEach(([value, label]) => {
+    const option = makeElement("option", "", label);
+    option.value = value;
+    if (value === 168) option.selected = true;
+    duration.append(option);
+  });
+  durationLabel.append(duration);
+
+  async function runModeration(action, button, confirmation = "") {
+    if (confirmation && !window.confirm(confirmation)) return;
+    setBusy(button, true, "Working…");
     try {
-      await callRpc("admin_update_report", {
-        report_id: report.id,
-        next_status: select.value,
+      await callRpc("admin_moderate_report", {
+        target_report_type: report.report_type || "user",
+        target_report_id: report.id,
+        moderation_action: action,
         note: note.value,
+        suspension_hours: duration.value === "" ? null : Number(duration.value),
       });
-      showToast("Report review saved.");
+      showToast("Moderation action completed.");
       await Promise.all([loadReports(), loadOverview(), state.context.role === "owner" ? loadAudit() : Promise.resolve()]);
     } catch (error) {
-      console.error("Report update failed", error);
-      showToast(error.message || "Report could not be updated.", true);
+      console.error("Moderation action failed", error);
+      showToast(error.message || "Moderation action could not be completed.", true);
     } finally {
-      setBusy(save, false);
+      setBusy(button, false);
     }
-  });
-  controls.append(statusLabel, noteLabel, save);
+  }
+
+  const save = makeElement("button", "button button-secondary", "Save review");
+  save.type = "button";
+  save.addEventListener("click", () => runModeration(select.value, save));
+
+  const suspend = makeElement("button", "button button-danger", "Suspend user");
+  suspend.type = "button";
+  suspend.addEventListener("click", () => runModeration(
+    "suspend_user",
+    suspend,
+    `Suspend ${report.reported_username || "this user"}?`,
+  ));
+
+  const actionRow = makeElement("div", "form-actions");
+  actionRow.append(save, suspend);
+  if (report.report_type === "content") {
+    const remove = makeElement("button", "button button-danger", "Remove content");
+    remove.type = "button";
+    remove.addEventListener("click", () => runModeration(
+      "remove_content",
+      remove,
+      "Permanently remove the reported content?",
+    ));
+    const removeSuspend = makeElement("button", "button button-danger", "Remove + suspend");
+    removeSuspend.type = "button";
+    removeSuspend.addEventListener("click", () => runModeration(
+      "remove_and_suspend",
+      removeSuspend,
+      "Remove the content and suspend its author?",
+    ));
+    actionRow.append(remove, removeSuspend);
+  }
+  if (report.is_suspended) {
+    const restore = makeElement("button", "button button-secondary", "Restore user");
+    restore.type = "button";
+    restore.addEventListener("click", () => runModeration("restore_user", restore));
+    actionRow.append(restore);
+  }
+  controls.append(statusLabel, noteLabel, durationLabel, actionRow);
   card.append(content, controls);
   return card;
 }
