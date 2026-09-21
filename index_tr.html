@@ -15,6 +15,12 @@
     <meta property="og:image" content="https://nomadxai.online/assets/images/hero.png">
     <meta property="og:url" content="https://nomadxai.online/index_tr.html">
     <meta name="twitter:card" content="summary_large_image">
+    <link rel="canonical" href="https://nomadxai.online/index_tr.html">
+    <link rel="alternate" hreflang="en" href="https://nomadxai.online/">
+    <link rel="alternate" hreflang="tr" href="https://nomadxai.online/index_tr.html">
+    <link rel="alternate" hreflang="es" href="https://nomadxai.online/index_es.html">
+    <link rel="alternate" hreflang="fr" href="https://nomadxai.online/index_fr.html">
+    <link rel="alternate" hreflang="de" href="https://nomadxai.online/index_de.html">
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="icon" type="image/png" href="assets/images/app-icon.png">
@@ -26,10 +32,12 @@
             <div class="logo">NomadX AI</div>
             <ul class="nav-links">
                 <li><a href="#features">Özellikler</a></li>
+                <li><a href="#latest">Yenilikler</a></li>
                 <li><a href="#vision">Yakında</a></li>
-                <li><a href="#ecosystem">Seyahat Servisleri</a></li>
-                <li><a href="index.html" class="lang-btn">EN</a></li>
-                <li><a href="#download" class="btn btn-primary">Yayın Durumu</a></li>
+                <li class="language-menu"><button class="lang-btn" type="button" aria-label="Dili değiştir">TR <i data-lucide="chevron-down"></i></button>
+                    <div class="language-options"><a href="index.html" lang="en">English</a><a href="index_tr.html" lang="tr" aria-current="page">Türkçe</a><a href="index_es.html" lang="es">Español</a><a href="index_fr.html" lang="fr">Français</a><a href="index_de.html" lang="de">Deutsch</a></div>
+                </li>
+                <li><a href="#download" class="btn btn-primary">İndir</a></li>
             </ul>
         </nav>
     </header>
@@ -45,15 +53,16 @@
                 NomadX Pro ve dijital seyahat pasaportu gelecek sürümlerin yol haritasında.</p>
             <div class="hero-btns">
                 <div class="store-buttons">
-                    <div class="store-btn">
+                    <a class="store-btn store-btn-live" href="https://apps.apple.com/app/id6797188085" target="_blank" rel="noopener" aria-label="NomadX AI'ı App Store'dan indir">
                         <i data-lucide="apple"></i>
-                        <div class="btn-text"><span>yakında</span><strong>App Store</strong></div>
-                    </div>
-                    <div class="store-btn">
+                        <div class="btn-text"><span>App Store'dan</span><strong>İndirin</strong></div>
+                    </a>
+                    <div class="store-btn status-pending">
                         <i data-lucide="play"></i>
-                        <div class="btn-text"><span>yakında</span><strong>Play Store</strong></div>
+                        <div class="btn-text"><span>kapalı testte</span><strong>Google Play</strong></div>
                     </div>
                 </div>
+                <p class="status-note status-live"><i data-lucide="circle-check" size="16"></i> 1.0.4 sürümü App Store'da yayında. Android kapalı test süreci devam ediyor.</p>
             </div>
         </div>
         <div class="hero-image">
@@ -61,8 +70,21 @@
         </div>
     </section>
 
+    <section id="latest" class="release-section container">
+        <div class="release-heading">
+            <div><span class="release-label">ŞİMDİ YAYINDA</span><h2><span class="text-gradient">1.0.4</span> sürümündeki yenilikler</h2></div>
+            <span class="release-platform"><i data-lucide="apple"></i> iPhone ve iPad</span>
+        </div>
+        <div class="release-grid">
+            <article class="release-card"><i data-lucide="users-round"></i><div><h3>Daha Akıllı Ortak Cüzdan</h3><p>Harcamaya katılan kişileri seç; kimin ödediğini ve kişi başı payları açıkça gör.</p></div></article>
+            <article class="release-card"><i data-lucide="pencil-line"></i><div><h3>Kolayca Düzenle</h3><p>Harcamaları ve katılımcıları düzenle; kullanılmayan katılımcıları güvenle kaldır.</p></div></article>
+            <article class="release-card"><i data-lucide="map-pinned"></i><div><h3>Daha İyi Haritalar</h3><p>Harita görünümü, ülke etkileşimleri ve genel kararlılık iyileştirildi.</p></div></article>
+            <article class="release-card"><i data-lucide="languages"></i><div><h3>Beş Dil</h3><p>Türkçe, İngilizce, İspanyolca, Fransızca ve Almanca arayüz iyileştirmeleri.</p></div></article>
+        </div>
+    </section>
+
     <section id="features" class="features container">
-        <h2 class="section-title">Modern Göçebeler İçin <span class="text-gradient">Tasarladı</span></h2>
+        <h2 class="section-title">Modern Gezginler İçin <span class="text-gradient">Tasarlandı</span></h2>
         <div class="features-grid">
             <div class="feature-card">
                 <div class="icon-box"><i data-lucide="map"></i></div>
@@ -122,7 +144,7 @@
             </div>
             <div class="tech-item">
                 <i data-lucide="languages"></i>
-                <p>Türkçe ve İngilizce</p>
+                <p>5 Dil Desteği</p>
             </div>
             <div class="tech-item">
                 <i data-lucide="refresh-cw"></i>
@@ -145,18 +167,18 @@
                     <p>Hesap, profil, depolama, sosyal özellikler ve güvenlik altyapısı hazır.</p>
                 </div>
             </div>
+            <div class="roadmap-item completed">
+                <div class="r-dot"></div>
+                <div class="r-content">
+                    <h4>App Store Yayını</h4>
+                    <p>NomadX AI 1.0.4, iPhone ve iPad için yayında.</p>
+                </div>
+            </div>
             <div class="roadmap-item active">
                 <div class="r-dot pulse"></div>
                 <div class="r-content">
-                    <h4>İç Testler</h4>
-                    <p>iOS ve Android akışları, mağaza gereksinimleri ve yasal içerikler doğrulanıyor.</p>
-                </div>
-            </div>
-            <div class="roadmap-item">
-                <div class="r-dot"></div>
-                <div class="r-content">
-                    <h4>App Store ve Play Store</h4>
-                    <p>TestFlight ve Play dahili testlerinden sonra mobil uygulama yayını yapılacak.</p>
+                    <h4>Google Play Kapalı Testi</h4>
+                    <p>Android sürümü Google Play'in zorunlu kapalı test sürecinden geçiyor.</p>
                 </div>
             </div>
             <div class="roadmap-item">
@@ -171,10 +193,11 @@
 
     <section id="download" class="cta-section container">
         <div class="cta-card">
-            <h2>Yayını Takip Etmek İster misin?</h2>
-            <p>Beta erişimi, destek veya gizlilik soruları için bize ulaş.</p>
+            <h2>Dünyanı Haritalamaya Başla</h2>
+            <p>NomadX AI'ı bugün App Store'dan indir.</p>
             <div class="cta-btns">
-                <a class="btn btn-large" href="mailto:support@nomadxai.online">NomadX'e Ulaş</a>
+                <a class="btn btn-large btn-store-cta" href="https://apps.apple.com/app/id6797188085" target="_blank" rel="noopener"><i data-lucide="apple"></i> App Store'dan İndir</a>
+                <a class="btn btn-secondary" href="mailto:support@nomadxai.online">NomadX'e Ulaş</a>
             </div>
         </div>
     </section>

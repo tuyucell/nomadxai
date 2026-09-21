@@ -24,6 +24,13 @@
     <meta property="og:image" content="https://nomadxai.online/assets/images/hero.png">
     <meta property="og:url" content="https://nomadxai.online">
     <meta name="twitter:card" content="summary_large_image">
+    <link rel="canonical" href="https://nomadxai.online/">
+    <link rel="alternate" hreflang="en" href="https://nomadxai.online/">
+    <link rel="alternate" hreflang="tr" href="https://nomadxai.online/index_tr.html">
+    <link rel="alternate" hreflang="es" href="https://nomadxai.online/index_es.html">
+    <link rel="alternate" hreflang="fr" href="https://nomadxai.online/index_fr.html">
+    <link rel="alternate" hreflang="de" href="https://nomadxai.online/index_de.html">
+    <link rel="alternate" hreflang="x-default" href="https://nomadxai.online/">
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="icon" type="image/png" href="assets/images/app-icon.png">
@@ -35,10 +42,12 @@
             <div class="logo">NomadX AI</div>
             <ul class="nav-links">
                 <li><a href="#features">Features</a></li>
+                <li><a href="#latest">What’s New</a></li>
                 <li><a href="#vision">Coming Next</a></li>
-                <li><a href="#ecosystem">Travel Services</a></li>
-                <li><a href="index_tr.html" class="lang-btn">TR</a></li>
-                <li><a href="#download" class="btn btn-primary">Launch Status</a></li>
+                <li class="language-menu"><button class="lang-btn" type="button" aria-label="Change language">EN <i data-lucide="chevron-down"></i></button>
+                    <div class="language-options"><a href="index.html" lang="en" aria-current="page">English</a><a href="index_tr.html" lang="tr">Türkçe</a><a href="index_es.html" lang="es">Español</a><a href="index_fr.html" lang="fr">Français</a><a href="index_de.html" lang="de">Deutsch</a></div>
+                </li>
+                <li><a href="#download" class="btn btn-primary">Download</a></li>
             </ul>
         </nav>
     </header>
@@ -54,17 +63,16 @@
                 and a digital travel passport are on the roadmap for future releases.</p>
             <div class="hero-btns">
                 <div class="store-buttons">
-                    <div class="store-btn status-pending">
+                    <a class="store-btn store-btn-live" href="https://apps.apple.com/app/id6797188085" target="_blank" rel="noopener" aria-label="Download NomadX AI on the App Store">
                         <i data-lucide="apple"></i>
-                        <div class="btn-text"><span>coming soon</span><strong>App Store</strong></div>
-                    </div>
+                        <div class="btn-text"><span>download on the</span><strong>App Store</strong></div>
+                    </a>
                     <div class="store-btn status-pending">
                         <i data-lucide="play"></i>
-                        <div class="btn-text"><span>coming soon</span><strong>Play Store</strong></div>
+                        <div class="btn-text"><span>closed testing</span><strong>Google Play</strong></div>
                     </div>
                 </div>
-                <p class="status-note"><i data-lucide="info" size="14"></i> Store packages are being prepared after
-                    internal iOS and Android testing.</p>
+                <p class="status-note status-live"><i data-lucide="circle-check" size="16"></i> Version 1.0.4 is now available on the App Store. Android closed testing is in progress.</p>
             </div>
         </div>
         <div class="hero-image">
@@ -72,8 +80,21 @@
         </div>
     </section>
 
+    <section id="latest" class="release-section container">
+        <div class="release-heading">
+            <div><span class="release-label">NOW AVAILABLE</span><h2>What’s new in <span class="text-gradient">1.0.4</span></h2></div>
+            <span class="release-platform"><i data-lucide="apple"></i> iPhone &amp; iPad</span>
+        </div>
+        <div class="release-grid">
+            <article class="release-card"><i data-lucide="users-round"></i><div><h3>Smarter Shared Wallet</h3><p>Choose exactly who joined an expense and see who paid and each person’s share.</p></div></article>
+            <article class="release-card"><i data-lucide="pencil-line"></i><div><h3>Edit with Confidence</h3><p>Edit expenses and participants, and safely remove participants with no activity.</p></div></article>
+            <article class="release-card"><i data-lucide="map-pinned"></i><div><h3>Better Maps</h3><p>Improved map display, country interactions and overall reliability.</p></div></article>
+            <article class="release-card"><i data-lucide="languages"></i><div><h3>Five Languages</h3><p>Interface and localization improvements for English, Turkish, Spanish, French and German.</p></div></article>
+        </div>
+    </section>
+
     <section id="features" class="features container">
-        <h2 class="section-title">Built for the <span class="text-gradient">Modern Nomad</span></h2>
+        <h2 class="section-title">Built for the <span class="text-gradient">Modern Traveler</span></h2>
         <div class="features-grid">
             <div class="feature-card">
                 <div class="icon-box"><i data-lucide="map"></i></div>
@@ -134,7 +155,7 @@
             </div>
             <div class="tech-item">
                 <i data-lucide="languages"></i>
-                <p>English & Turkish</p>
+                <p>5 Languages</p>
             </div>
             <div class="tech-item">
                 <i data-lucide="refresh-cw"></i>
@@ -157,18 +178,18 @@
                     <p>Account, profile, storage and social backend restored and secured.</p>
                 </div>
             </div>
+            <div class="roadmap-item completed">
+                <div class="r-dot"></div>
+                <div class="r-content">
+                    <h4>App Store Launch</h4>
+                    <p>NomadX AI 1.0.4 is live for iPhone and iPad.</p>
+                </div>
+            </div>
             <div class="roadmap-item active">
                 <div class="r-dot pulse"></div>
                 <div class="r-content">
-                    <h4>Internal Testing</h4>
-                    <p>iOS and Android flows, store requirements and legal content are being verified.</p>
-                </div>
-            </div>
-            <div class="roadmap-item">
-                <div class="r-dot"></div>
-                <div class="r-content">
-                    <h4>App Store &amp; Play Store</h4>
-                    <p>TestFlight and Play internal testing will precede the public mobile launch.</p>
+                    <h4>Google Play Closed Test</h4>
+                    <p>The Android release is moving through Google Play’s required closed testing process.</p>
                 </div>
             </div>
             <div class="roadmap-item">
@@ -183,10 +204,11 @@
 
     <section id="download" class="cta-section container">
         <div class="cta-card">
-            <h2>Want to Follow the Launch?</h2>
-            <p>Contact us for beta availability, support, or privacy questions.</p>
+            <h2>Start Mapping Your World</h2>
+            <p>Download NomadX AI on the App Store today.</p>
             <div class="cta-btns">
-                <a class="btn btn-large" href="mailto:support@nomadxai.online">Contact NomadX</a>
+                <a class="btn btn-large btn-store-cta" href="https://apps.apple.com/app/id6797188085" target="_blank" rel="noopener"><i data-lucide="apple"></i> Download on the App Store</a>
+                <a class="btn btn-secondary" href="mailto:support@nomadxai.online">Contact NomadX</a>
             </div>
         </div>
     </section>
