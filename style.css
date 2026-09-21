@@ -79,11 +79,17 @@ nav {
     color: var(--primary);
 }
 
-.language-menu { position: relative; }
+.nav-links .btn-primary:hover,
+.nav-links .btn-primary:focus-visible {
+    color: #fff;
+    background: #4338CA;
+}
+
+.language-menu { position: relative; list-style: none; }
 .lang-btn { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; padding: 12px 4px; }
 .lang-btn svg { width: 14px; height: 14px; }
-.language-options { position: absolute; right: 0; top: calc(100% - 2px); min-width: 150px; padding: 8px; border: 1px solid var(--glass-border); border-radius: 14px; background: rgba(15, 23, 42, .98); box-shadow: 0 20px 45px rgba(0,0,0,.35); opacity: 0; visibility: hidden; transform: translateY(-6px); transition: .2s; }
-.language-menu:hover .language-options, .language-menu:focus-within .language-options { opacity: 1; visibility: visible; transform: translateY(0); }
+.language-options { position: absolute; right: 0; top: calc(100% - 2px); z-index: 20; min-width: 150px; padding: 8px; border: 1px solid var(--glass-border); border-radius: 14px; background: rgba(15, 23, 42, .98); box-shadow: 0 20px 45px rgba(0,0,0,.35); opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-6px); transition: .2s; }
+.language-menu:hover .language-options, .language-menu:focus-within .language-options { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); }
 .language-options a { display: block; padding: 9px 12px; border-radius: 9px; white-space: nowrap; }
 .language-options a:hover, .language-options a[aria-current="page"] { color: white; background: rgba(79,70,229,.24); }
 
