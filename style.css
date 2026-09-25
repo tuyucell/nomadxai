@@ -700,4 +700,9 @@ footer {
     .release-card { padding: 22px; }
     .cta-card { padding: 52px 22px; }
     .cta-card h2 { font-size: 32px; }
+
+    .footer-grid {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
 }
