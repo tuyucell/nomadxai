@@ -14,8 +14,33 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 const state = {
   context: null,
   summary: null,
+  aiUsage: null,
   announcements: [],
   currentSection: "overview",
+};
+
+const AI_QUALITY_PRESETS = {
+  economy: {
+    openai_model: "gpt-5.6-luna",
+    openai_reasoning_effort: "low",
+    openai_search_context_size: "low",
+    openai_max_output_tokens: 5000,
+    openai_max_tool_calls: 3,
+  },
+  balanced: {
+    openai_model: "gpt-5.6-terra",
+    openai_reasoning_effort: "low",
+    openai_search_context_size: "medium",
+    openai_max_output_tokens: 6000,
+    openai_max_tool_calls: 5,
+  },
+  premium: {
+    openai_model: "gpt-5.6-sol",
+    openai_reasoning_effort: "low",
+    openai_search_context_size: "high",
+    openai_max_output_tokens: 8000,
+    openai_max_tool_calls: 8,
+  },
 };
 
 const sectionTitles = {
@@ -168,6 +193,7 @@ async function refreshAll() {
   try {
     await Promise.all([
       loadOverview(),
+      loadAiUsage(),
       loadFeatureFlags(),
       loadUsers(),
       loadActivity(),
@@ -216,6 +242,54 @@ async function loadOverview() {
   renderEventChart(state.summary.event_series || []);
 }
 
+function formatCompactNumber(value) {
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 })
+    .format(Number(value || 0));
+}
+
+async function loadAiUsage() {
+  state.aiUsage = await callRpc("admin_ai_usage_summary", { period_days: 30 });
+  const metrics = [
+    ["Requests", state.aiUsage.requests || 0],
+    ["Input tokens", formatCompactNumber(state.aiUsage.input_tokens)],
+    ["Output tokens", formatCompactNumber(state.aiUsage.output_tokens)],
+    ["Web searches", state.aiUsage.web_search_calls || 0],
+  ];
+  const grid = document.querySelector("#aiUsageMetrics");
+  grid.replaceChildren();
+  metrics.forEach(([label, value]) => {
+    const card = makeElement("article", "mini-metric");
+    card.append(makeElement("small", "", label), makeElement("strong", "", value));
+    grid.append(card);
+  });
+
+  const body = document.querySelector("#aiUsageTableBody");
+  body.replaceChildren();
+  const rows = state.aiUsage.by_model || [];
+  if (!rows.length) {
+    body.append(emptyTableRow("No token usage has been recorded yet.", 7));
+    return;
+  }
+  rows.forEach((usage) => {
+    const row = document.createElement("tr");
+    [
+      usage.model,
+      usage.provider,
+      usage.requests,
+      formatCompactNumber(usage.input_tokens),
+      formatCompactNumber(usage.output_tokens),
+      formatCompactNumber(usage.reasoning_tokens),
+      usage.web_search_calls,
+    ].forEach((value, index) => {
+      const cell = document.createElement("td");
+      cell.textContent = String(value ?? "—");
+      if (index === 0) cell.className = "table-primary";
+      row.append(cell);
+    });
+    body.append(row);
+  });
+}
+
 function renderEventChart(series) {
   const chart = document.querySelector("#eventChart");
   chart.replaceChildren();
@@ -247,6 +321,7 @@ async function loadFeatureFlags() {
 
 function buildFlagCard(flag) {
   const card = makeElement("article", "flag-card");
+  card.dataset.flagKey = flag.key;
   const header = makeElement("div", "flag-header");
   const title = makeElement("div", "flag-title");
   title.append(
@@ -291,11 +366,15 @@ function buildFlagCard(flag) {
           config[key] = input.checked;
           return;
         }
-        const value = Number.parseInt(input.value, 10);
-        if (!Number.isFinite(value)) {
-          throw new Error(`${key.replaceAll("_", " ")} must be a number.`);
+        if (input.dataset.configType === "integer") {
+          const value = Number.parseInt(input.value, 10);
+          if (!Number.isFinite(value)) {
+            throw new Error(`${key.replaceAll("_", " ")} must be a number.`);
+          }
+          config[key] = value;
+          return;
         }
-        config[key] = value;
+        config[key] = input.value.trim();
       });
     } catch (error) {
       showToast(error.message || "Invalid JSON config.", true);
@@ -333,37 +412,136 @@ function buildFlagCard(flag) {
 function buildStructuredConfigFields(flag, container) {
   const schemas = {
     ai_daily_route: [
-      ["free_daily_limit", "Free daily limit", 1, 100],
-      ["pro_daily_limit", "Pro daily limit", 1, 1000],
-      ["max_stops", "Maximum stops", 2, 10],
+      { key: "free_daily_limit", label: "Free daily limit", type: "integer", min: 1, max: 100 },
+      { key: "pro_daily_limit", label: "Pro daily limit", type: "integer", min: 1, max: 1000 },
+      { key: "max_stops", label: "Maximum stops", type: "integer", min: 2, max: 10 },
+      {
+        key: "ai_quality_preset",
+        label: "Quality / cost profile",
+        type: "select",
+        options: ["economy", "balanced", "premium", "custom"],
+      },
+      {
+        key: "openai_model",
+        label: "OpenAI model ID",
+        type: "text",
+        suggestions: [
+          "gpt-5.6-luna",
+          "gpt-5.6-terra",
+          "gpt-5.6-sol",
+          "gpt-6-luna",
+          "gpt-6.1-sol",
+          "gpt-6-astra",
+        ],
+      },
+      {
+        key: "openai_reasoning_effort",
+        label: "Reasoning effort",
+        type: "select",
+        options: ["none", "low", "medium", "high", "xhigh", "max"],
+      },
+      {
+        key: "openai_search_context_size",
+        label: "Web search context",
+        type: "select",
+        options: ["low", "medium", "high"],
+      },
+      {
+        key: "openai_max_output_tokens",
+        label: "Max output + reasoning tokens",
+        type: "integer",
+        min: 2000,
+        max: 20000,
+        step: 500,
+      },
+      {
+        key: "openai_max_tool_calls",
+        label: "Maximum web/tool calls",
+        type: "integer",
+        min: 1,
+        max: 12,
+      },
     ],
     user_activity_tracking: [
-      ["retention_days", "Retention days", 30, 365],
+      { key: "retention_days", label: "Retention days", type: "integer", min: 30, max: 365 },
     ],
     google_places_provider: [
-      ["rollout_percent", "Rollout percent", 0, 100],
+      { key: "rollout_percent", label: "Rollout percent", type: "integer", min: 0, max: 100 },
     ],
     country_chat: [
-      ["requires_pro", "Pro members only", null, null, "checkbox"],
+      { key: "requires_pro", label: "Pro members only", type: "checkbox" },
     ],
   };
   const inputs = {};
-  (schemas[flag.key] || []).forEach(([key, labelText, minimum, maximum, type]) => {
-    const label = makeElement("label", "", labelText);
-    const input = makeElement("input");
-    input.type = type || "number";
-    if (input.type === "checkbox") {
-      input.checked = flag.config?.[key] === true;
+  (schemas[flag.key] || []).forEach((field) => {
+    const label = makeElement("label", "", field.label);
+    const input = makeElement(field.type === "select" ? "select" : "input");
+    input.dataset.configType = field.type === "integer" ? "integer" : "string";
+    if (field.type === "select") {
+      field.options.forEach((value) => {
+        const option = makeElement("option", "", value);
+        option.value = value;
+        input.append(option);
+      });
     } else {
-      input.min = minimum;
-      input.max = maximum;
-      input.value = flag.config?.[key] ?? minimum;
+      input.type = field.type === "integer" ? "number" : field.type;
+    }
+    if (input.type === "checkbox") {
+      input.checked = flag.config?.[field.key] === true;
+    } else {
+      if (field.min !== undefined) input.min = field.min;
+      if (field.max !== undefined) input.max = field.max;
+      if (field.step !== undefined) input.step = field.step;
+      input.value = flag.config?.[field.key] ?? field.options?.[0] ?? field.min ?? "";
+    }
+    if (field.suggestions) {
+      const list = makeElement("datalist");
+      list.id = `${flag.key}-${field.key}-suggestions`;
+      field.suggestions.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        list.append(option);
+      });
+      input.setAttribute("list", list.id);
+      label.append(input, list);
+    } else {
+      label.append(input);
     }
     input.disabled = state.context.role !== "owner";
-    label.append(input);
     container.append(label);
-    inputs[key] = input;
+    inputs[field.key] = input;
   });
+
+  if (flag.key === "ai_daily_route") {
+    const note = makeElement(
+      "p",
+      "ai-config-note",
+      "Economy is the production-safe default. Choose Custom to enter any future valid model ID. Changes apply to new route requests without redeploying; API keys remain server-side.",
+    );
+    container.append(note);
+    const presetInput = inputs.ai_quality_preset;
+    presetInput.addEventListener("change", () => {
+      const preset = AI_QUALITY_PRESETS[presetInput.value];
+      if (!preset) return;
+      Object.entries(preset).forEach(([key, value]) => {
+        inputs[key].value = String(value);
+      });
+    });
+    [
+      "openai_model",
+      "openai_reasoning_effort",
+      "openai_search_context_size",
+      "openai_max_output_tokens",
+      "openai_max_tool_calls",
+    ].forEach((key) => {
+      inputs[key].addEventListener("input", () => {
+        const preset = AI_QUALITY_PRESETS[presetInput.value];
+        if (preset && String(preset[key]) !== inputs[key].value) {
+          presetInput.value = "custom";
+        }
+      });
+    });
+  }
   return inputs;
 }
 

@@ -11,7 +11,7 @@
   >
   <title>NomadX Control Room</title>
   <link rel="icon" href="../assets/images/app-icon.png">
-  <link rel="stylesheet" href="admin-4f6b4d3.css?v=20260815">
+  <link rel="stylesheet" href="admin-4f6b4d3.css?v=20260929">
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -166,6 +166,33 @@
               </ul>
             </article>
           </div>
+          <article class="panel ai-usage-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Cost signals</p>
+                <h2>AI usage by model</h2>
+                <p>Raw provider token usage from newly generated routes. Pricing is intentionally not hard-coded because model rates change.</p>
+              </div>
+              <span class="privacy-chip">Last 30 days</span>
+            </div>
+            <div id="aiUsageMetrics" class="mini-metric-grid"></div>
+            <div class="table-scroll ai-usage-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Provider</th>
+                    <th>Requests</th>
+                    <th>Input</th>
+                    <th>Output</th>
+                    <th>Reasoning</th>
+                    <th>Searches</th>
+                  </tr>
+                </thead>
+                <tbody id="aiUsageTableBody"></tbody>
+              </table>
+            </div>
+          </article>
         </section>
 
         <section id="section-flags" class="panel-section">
@@ -415,6 +442,6 @@
     </div>
   </div>
 
-  <script type="module" src="admin-4f6b4d3.js?v=20260815"></script>
+  <script type="module" src="admin-4f6b4d3.js?v=20260929"></script>
 </body>
 </html>

@@ -611,6 +611,10 @@ textarea:focus {
   border-radius: 20px;
 }
 
+.flag-card[data-flag-key="ai_daily_route"] {
+  grid-column: 1 / -1;
+}
+
 .flag-header {
   display: flex;
   align-items: flex-start;
@@ -657,6 +661,42 @@ textarea:focus {
 
 .structured-config:empty {
   display: none;
+}
+
+.ai-config-note {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(76, 200, 229, 0.16);
+  border-radius: 13px;
+  background: rgba(76, 200, 229, 0.055);
+  color: #aeb4d0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ai-usage-panel {
+  margin-top: 18px;
+  padding: 24px;
+}
+
+.ai-usage-panel .panel-heading p:not(.eyebrow) {
+  max-width: 680px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ai-usage-panel .mini-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 22px;
+}
+
+.ai-usage-table {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
 }
 
 .advanced-config {
@@ -1157,6 +1197,10 @@ tbody tr:hover {
   .structured-config,
   .mini-metric-grid {
     grid-template-columns: 1fr;
+  }
+
+  .ai-usage-panel .mini-metric-grid {
+    grid-template-columns: 1fr 1fr;
   }
 
   .chart-panel,
