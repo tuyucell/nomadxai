@@ -464,8 +464,20 @@ function buildStructuredConfigFields(flag, container) {
     ],
     ai_regional_tour: [
       { key: "requires_pro", label: "Pro members only", type: "checkbox" },
-      { key: "free_daily_limit", label: "Free daily limit", type: "integer", min: 1, max: 10 },
-      { key: "pro_daily_limit", label: "Pro daily limit", type: "integer", min: 1, max: 100 },
+      {
+        key: "free_daily_limit",
+        label: "Regional tour — free daily limit",
+        type: "integer",
+        min: 1,
+        max: 100,
+      },
+      {
+        key: "pro_daily_limit",
+        label: "Regional tour — Pro daily limit",
+        type: "integer",
+        min: 1,
+        max: 1000,
+      },
       {
         key: "ai_quality_preset",
         label: "Quality / cost profile",
@@ -568,7 +580,7 @@ function buildStructuredConfigFields(flag, container) {
       "p",
       "ai-config-note",
       flag.key === "ai_regional_tour"
-        ? "Regional-tour limits are independent from daily-route limits. Increasing today's limit takes effect on the next request without redeploying; existing usage is preserved."
+        ? "AI regional tour quota: change the Free or Pro daily limit above, then press Save. These limits are independent from AI Daily Route. A higher limit applies to the next request without redeploying; today's existing usage is preserved."
         : "Economy is the production-safe default. Choose Custom to enter any future valid model ID. Changes apply to new route requests without redeploying; API keys remain server-side.",
     );
     container.append(note);
