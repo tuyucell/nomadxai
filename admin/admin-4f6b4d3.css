@@ -611,7 +611,8 @@ textarea:focus {
   border-radius: 20px;
 }
 
-.flag-card[data-flag-key="ai_daily_route"] {
+.flag-card[data-flag-key="ai_daily_route"],
+.flag-card[data-flag-key="ai_regional_tour"] {
   grid-column: 1 / -1;
 }
 

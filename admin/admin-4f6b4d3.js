@@ -462,6 +462,57 @@ function buildStructuredConfigFields(flag, container) {
         max: 12,
       },
     ],
+    ai_regional_tour: [
+      { key: "requires_pro", label: "Pro members only", type: "checkbox" },
+      { key: "free_daily_limit", label: "Free daily limit", type: "integer", min: 1, max: 10 },
+      { key: "pro_daily_limit", label: "Pro daily limit", type: "integer", min: 1, max: 100 },
+      {
+        key: "ai_quality_preset",
+        label: "Quality / cost profile",
+        type: "select",
+        options: ["economy", "balanced", "premium", "custom"],
+      },
+      {
+        key: "openai_model",
+        label: "OpenAI model ID",
+        type: "text",
+        suggestions: [
+          "gpt-5.6-luna",
+          "gpt-5.6-terra",
+          "gpt-5.6-sol",
+          "gpt-6-luna",
+          "gpt-6-sol",
+          "gpt-6-astra",
+        ],
+      },
+      {
+        key: "openai_reasoning_effort",
+        label: "Reasoning effort",
+        type: "select",
+        options: ["none", "low", "medium", "high", "xhigh", "max"],
+      },
+      {
+        key: "openai_search_context_size",
+        label: "Web search context",
+        type: "select",
+        options: ["low", "medium", "high"],
+      },
+      {
+        key: "openai_max_output_tokens",
+        label: "Max output + reasoning tokens",
+        type: "integer",
+        min: 2000,
+        max: 20000,
+        step: 500,
+      },
+      {
+        key: "openai_max_tool_calls",
+        label: "Maximum web/tool calls",
+        type: "integer",
+        min: 1,
+        max: 12,
+      },
+    ],
     user_activity_tracking: [
       { key: "retention_days", label: "Retention days", type: "integer", min: 30, max: 365 },
     ],
@@ -512,11 +563,13 @@ function buildStructuredConfigFields(flag, container) {
     inputs[field.key] = input;
   });
 
-  if (flag.key === "ai_daily_route") {
+  if (flag.key === "ai_daily_route" || flag.key === "ai_regional_tour") {
     const note = makeElement(
       "p",
       "ai-config-note",
-      "Economy is the production-safe default. Choose Custom to enter any future valid model ID. Changes apply to new route requests without redeploying; API keys remain server-side.",
+      flag.key === "ai_regional_tour"
+        ? "Regional-tour limits are independent from daily-route limits. Increasing today's limit takes effect on the next request without redeploying; existing usage is preserved."
+        : "Economy is the production-safe default. Choose Custom to enter any future valid model ID. Changes apply to new route requests without redeploying; API keys remain server-side.",
     );
     container.append(note);
     const presetInput = inputs.ai_quality_preset;
