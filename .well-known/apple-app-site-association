@@ -8,6 +8,11 @@
             "/": "/tour.html",
             "?": { "share": "*" },
             "comment": "Open a shared regional tour in NomadX"
+          },
+          {
+            "/": "/tour.html",
+            "?": { "daily": "*" },
+            "comment": "Open a shared AI day plan in NomadX"
           }
         ]
       }
