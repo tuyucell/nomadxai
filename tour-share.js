@@ -2,6 +2,7 @@
   'use strict';
 
   const API = 'https://mewpnmaoihjksorvayjh.supabase.co/functions/v1/regional-tour-public';
+  const APP_STORE = 'https://apps.apple.com/app/id6797188085';
   const params = new URLSearchParams(window.location.search);
   const token = (params.get('share') || '').trim();
   const loading = document.getElementById('loading');
@@ -9,15 +10,77 @@
   const tourRoot = document.getElementById('tour');
 
   const strings = {
-    tr: { loading: 'Paylaşılan tur yükleniyor…', unavailable: 'Bu bağlantı kullanılamıyor', unavailableCopy: 'Süresi dolmuş veya tur sahibi tarafından iptal edilmiş olabilir.', days: 'gün', readOnly: 'Salt okunur', itinerary: 'TUR PLANI', plan: 'Tur planın', expand: 'Tümünü aç', collapse: 'Tümünü kapat', direction: 'Yol tarifi', overnight: 'Bu günün sonunda geceleme planlanıyor', meals: 'YEMEK DURAKLARI' },
-    en: { loading: 'Loading shared tour…', unavailable: 'This link is unavailable', unavailableCopy: 'It may have expired or been revoked by its owner.', days: 'days', readOnly: 'Read only', itinerary: 'ITINERARY', plan: 'Your tour plan', expand: 'Expand all', collapse: 'Collapse all', direction: 'Directions', overnight: 'An overnight stay is planned after this day', meals: 'MEAL STOPS' },
-    de: { loading: 'Geteilte Tour wird geladen…', unavailable: 'Dieser Link ist nicht verfügbar', unavailableCopy: 'Er ist möglicherweise abgelaufen oder wurde widerrufen.', days: 'Tage', readOnly: 'Nur lesen', itinerary: 'REISEPLAN', plan: 'Dein Reiseplan', expand: 'Alle öffnen', collapse: 'Alle schließen', direction: 'Route', overnight: 'Nach diesem Tag ist eine Übernachtung geplant', meals: 'ESSENSSTOPPS' },
-    es: { loading: 'Cargando el tour compartido…', unavailable: 'Este enlace no está disponible', unavailableCopy: 'Puede haber caducado o haber sido revocado.', days: 'días', readOnly: 'Solo lectura', itinerary: 'ITINERARIO', plan: 'Tu plan de viaje', expand: 'Abrir todo', collapse: 'Cerrar todo', direction: 'Cómo llegar', overnight: 'Hay una estancia nocturna prevista tras este día', meals: 'PARADAS PARA COMER' },
-    fr: { loading: 'Chargement du circuit partagé…', unavailable: 'Ce lien est indisponible', unavailableCopy: 'Il a peut-être expiré ou été révoqué.', days: 'jours', readOnly: 'Lecture seule', itinerary: 'ITINÉRAIRE', plan: 'Votre circuit', expand: 'Tout ouvrir', collapse: 'Tout fermer', direction: 'Itinéraire', overnight: 'Une nuitée est prévue après cette journée', meals: 'PAUSES REPAS' },
+    tr: { loading: 'Paylaşılan tur yükleniyor…', unavailable: 'Bu bağlantı kullanılamıyor', unavailableCopy: 'Süresi dolmuş veya tur sahibi tarafından iptal edilmiş olabilir.', days: 'gün', readOnly: 'Salt okunur', demo: 'Örnek tur', itinerary: 'TUR PLANI', plan: 'Tur planın', expand: 'Tümünü aç', collapse: 'Tümünü kapat', direction: 'Yol tarifi', overnight: 'Bu günün sonunda geceleme planlanıyor', meals: 'YEMEK DURAKLARI', getApp: 'Uygulamayı indir', downloadApp: 'NomadX’i indir', sample: 'Örnek turu görüntüle' },
+    en: { loading: 'Loading shared tour…', unavailable: 'This link is unavailable', unavailableCopy: 'It may have expired or been revoked by its owner.', days: 'days', readOnly: 'Read only', demo: 'Sample tour', itinerary: 'ITINERARY', plan: 'Your tour plan', expand: 'Expand all', collapse: 'Collapse all', direction: 'Directions', overnight: 'An overnight stay is planned after this day', meals: 'MEAL STOPS', getApp: 'Get the app', downloadApp: 'Download NomadX', sample: 'View sample tour' },
+    de: { loading: 'Geteilte Tour wird geladen…', unavailable: 'Dieser Link ist nicht verfügbar', unavailableCopy: 'Er ist möglicherweise abgelaufen oder wurde widerrufen.', days: 'Tage', readOnly: 'Nur lesen', demo: 'Beispieltour', itinerary: 'REISEPLAN', plan: 'Dein Reiseplan', expand: 'Alle öffnen', collapse: 'Alle schließen', direction: 'Route', overnight: 'Nach diesem Tag ist eine Übernachtung geplant', meals: 'ESSENSSTOPPS', getApp: 'App laden', downloadApp: 'NomadX laden', sample: 'Beispieltour ansehen' },
+    es: { loading: 'Cargando el tour compartido…', unavailable: 'Este enlace no está disponible', unavailableCopy: 'Puede haber caducado o haber sido revocado.', days: 'días', readOnly: 'Solo lectura', demo: 'Tour de ejemplo', itinerary: 'ITINERARIO', plan: 'Tu plan de viaje', expand: 'Abrir todo', collapse: 'Cerrar todo', direction: 'Cómo llegar', overnight: 'Hay una estancia nocturna prevista tras este día', meals: 'PARADAS PARA COMER', getApp: 'Descargar app', downloadApp: 'Descargar NomadX', sample: 'Ver tour de ejemplo' },
+    fr: { loading: 'Chargement du circuit partagé…', unavailable: 'Ce lien est indisponible', unavailableCopy: 'Il a peut-être expiré ou été révoqué.', days: 'jours', readOnly: 'Lecture seule', demo: 'Circuit exemple', itinerary: 'ITINÉRAIRE', plan: 'Votre circuit', expand: 'Tout ouvrir', collapse: 'Tout fermer', direction: 'Itinéraire', overnight: 'Une nuitée est prévue après cette journée', meals: 'PAUSES REPAS', getApp: 'Télécharger', downloadApp: 'Télécharger NomadX', sample: 'Voir un exemple' },
   };
   let locale = (navigator.language || 'en').slice(0, 2);
   if (!strings[locale]) locale = 'en';
   let t = strings[locale];
+
+  function demoData() {
+    const tr = locale === 'tr';
+    return {
+      locale,
+      tour: {
+        title: tr ? 'Ege Kıyıları: İzmir’den Fethiye’ye' : 'Aegean Coast: İzmir to Fethiye',
+        summary: tr
+          ? 'Tarihi durakları, yerel lezzetleri ve kıyı manzaralarını birleştiren üç günlük örnek NomadX turu.'
+          : 'A three-day sample NomadX tour combining historic stops, local food and coastal views.',
+        region_label: tr ? 'ÖRNEK EGE TURU' : 'SAMPLE AEGEAN TOUR',
+        start_date: '2026-10-18',
+        day_count: 3,
+        transport_modes: [tr ? 'araba' : 'driving', tr ? 'yürüyüş' : 'walking'],
+        days: [
+          {
+            day_number: 1,
+            date: '2026-10-18',
+            location: { name: 'İzmir' },
+            title: tr ? 'İzmir: Kordon ve tarihi merkez' : 'İzmir: waterfront and old town',
+            summary: tr ? 'Konak çevresinden başlayıp Kemeraltı ve Kordon’a uzanan dengeli bir şehir günü.' : 'A balanced city day from Konak through Kemeraltı to the waterfront.',
+            overnight_at_end: true,
+            stops: [
+              { scheduled_time: '09:30', name: 'Tarihi Asansör', category_key: tr ? 'Manzara' : 'Viewpoint', address: 'Turgut Reis, Şehit Nihatbey Cd. 76/A, Konak/İzmir', latitude: 38.4086, longitude: 27.1170, why: tr ? 'Körfez manzarasıyla güne sakin bir başlangıç.' : 'A relaxed start with panoramic gulf views.' },
+              { scheduled_time: '11:15', name: 'Kemeraltı Çarşısı', category_key: tr ? 'Tarihi bölge' : 'Historic district', address: 'Konak, İzmir', latitude: 38.4192, longitude: 27.1320, why: tr ? 'Yerel dükkânlar, hanlar ve sokak lezzetleri için.' : 'For local shops, historic inns and street food.' }
+            ],
+            meals: [
+              { scheduled_time: '13:00', name: 'Hisarönü Şambalicisi', category_key: tr ? 'Yerel lezzet' : 'Local food', address: 'Kemeraltı, Konak/İzmir', latitude: 38.4203, longitude: 27.1327, why: tr ? 'İzmir’in klasik tatlı duraklarından biri.' : 'One of İzmir’s classic dessert stops.' }
+            ]
+          },
+          {
+            day_number: 2,
+            date: '2026-10-19',
+            location: { name: 'Selçuk' },
+            title: tr ? 'Efes ve Şirince' : 'Ephesus and Şirince',
+            summary: tr ? 'Sabah Efes antik kenti, öğleden sonra Şirince sokakları ve gün batımı.' : 'Ephesus in the morning, Şirince streets and sunset in the afternoon.',
+            overnight_at_end: true,
+            stops: [
+              { scheduled_time: '09:00', name: 'Efes Antik Kenti', category_key: tr ? 'Tarihi yer' : 'Historic site', address: 'Atatürk, Uğur Mumcu Sevgi Yolu, Selçuk/İzmir', latitude: 37.9411, longitude: 27.3410, why: tr ? 'Yoğunluk ve sıcaklık artmadan ana yapıları gezmek için.' : 'To explore the main ruins before heat and crowds build.' },
+              { scheduled_time: '15:30', name: 'Şirince Köyü', category_key: tr ? 'Köy ve manzara' : 'Village and views', address: 'Şirince, Selçuk/İzmir', latitude: 37.9446, longitude: 27.4311, why: tr ? 'Taş sokaklar ve vadi manzaralarıyla günü tamamlamak için.' : 'Stone streets and valley views to close the day.' }
+            ],
+            meals: []
+          },
+          {
+            day_number: 3,
+            date: '2026-10-20',
+            location: { name: 'Fethiye' },
+            title: tr ? 'Fethiye: Kayaköy ve gün batımı' : 'Fethiye: Kayaköy and sunset',
+            summary: tr ? 'Kayaköy yürüyüşü, sahil molası ve gün batımıyla turun finali.' : 'A Kayaköy walk, waterfront break and sunset finale.',
+            overnight_at_end: false,
+            stops: [
+              { scheduled_time: '10:00', name: 'Kayaköy', category_key: tr ? 'Tarihi yer' : 'Historic site', address: 'Kayaköy, Fethiye/Muğla', latitude: 36.5754, longitude: 29.0873, why: tr ? 'Tarihi taş yerleşimi serin sabah saatlerinde keşfetmek için.' : 'To explore the historic stone settlement in the cooler morning.' },
+              { scheduled_time: '17:45', name: 'Çalış Plajı', category_key: tr ? 'Gün batımı' : 'Sunset', address: 'Foça, Fethiye/Muğla', latitude: 36.6584, longitude: 29.1011, why: tr ? 'Turun finalini sahilde gün batımıyla yapmak için.' : 'To finish the tour with sunset by the sea.' }
+            ],
+            meals: [
+              { scheduled_time: '13:30', name: 'Fethiye Balık Pazarı', category_key: tr ? 'Öğle yemeği' : 'Lunch', address: 'Cumhuriyet, Fethiye/Muğla', latitude: 36.6219, longitude: 29.1153, why: tr ? 'Yerel ürünlerden kişisel bir menü oluşturmak için.' : 'For a flexible meal built around local seafood.' }
+            ]
+          }
+        ]
+      }
+    };
+  }
 
   function text(id, value) {
     const node = document.getElementById(id);
@@ -30,6 +93,8 @@
     error.hidden = false;
     text('error-title', t.unavailable);
     text('error-copy', t.unavailableCopy);
+    const sampleLink = document.getElementById('sample-tour-link');
+    if (sampleLink) sampleLink.textContent = t.sample;
   }
 
   function appUrl() {
@@ -87,14 +152,14 @@
     return card;
   }
 
-  function render(data) {
+  function render(data, { demo = false } = {}) {
     const tour = data.tour || {};
     locale = strings[data.locale] ? data.locale : locale;
     t = strings[locale];
     document.documentElement.lang = locale;
     document.title = `${tour.title || 'Shared Tour'} · NomadX AI`;
     text('region', (tour.region_label || 'SHARED TOUR').toUpperCase());
-    document.querySelector('.readonly-badge').textContent = t.readOnly;
+    document.querySelector('.readonly-badge').textContent = demo ? t.demo : t.readOnly;
     text('tour-title', tour.title);
     text('tour-summary', tour.summary);
     text('start-date', tour.start_date || '');
@@ -104,7 +169,10 @@
     document.querySelector('.section-heading h2').textContent = t.plan;
     const expandButton = document.getElementById('expand-all');
     expandButton.textContent = t.expand;
-    document.querySelectorAll('[data-open-app]').forEach((link) => { link.href = appUrl(); });
+    document.querySelectorAll('[data-open-app]').forEach((link) => {
+      link.href = demo ? APP_STORE : appUrl();
+      if (demo) link.textContent = link.classList.contains('compact') ? t.getApp : t.downloadApp;
+    });
 
     const daysRoot = document.getElementById('days');
     daysRoot.replaceChildren();
@@ -175,6 +243,11 @@
     loading.hidden = true;
     error.hidden = true;
     tourRoot.hidden = false;
+  }
+
+  if (!token || params.get('demo') === '1') {
+    render(demoData(), { demo: true });
+    return;
   }
 
   if (!/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
