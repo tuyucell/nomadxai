@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="theme-color" content="#fbf8f3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#15120f" media="(prefers-color-scheme: dark)">
+  <title>Shared Tour · NomadX AI</title>
+  <link rel="icon" type="image/png" href="assets/images/app-icon.png">
+  <link rel="stylesheet" href="tour-share.css?v=1">
+  <script defer src="tour-share.js?v=1"></script>
+</head>
+<body>
+  <header class="app-bar">
+    <a class="brand" href="/" aria-label="NomadX AI home">
+      <img src="assets/images/app-icon.png" alt="">
+      <span><strong>NomadX</strong><small>AI TOUR</small></span>
+    </a>
+    <a class="open-app compact" data-open-app href="#">Open app</a>
+  </header>
+
+  <main class="shell">
+    <section id="loading" class="state-card" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <h1>Loading shared tour…</h1>
+      <p>Preparing the latest read-only itinerary.</p>
+    </section>
+
+    <section id="error" class="state-card" hidden>
+      <div class="state-icon">!</div>
+      <h1 id="error-title">This link is unavailable</h1>
+      <p id="error-copy">It may have expired or been revoked by its owner.</p>
+      <a class="primary-action" href="/">Explore NomadX AI</a>
+    </section>
+
+    <article id="tour" hidden>
+      <section class="hero-card">
+        <div class="eyebrow-row">
+          <span id="region" class="eyebrow">SHARED TOUR</span>
+          <span class="readonly-badge">Read only</span>
+        </div>
+        <h1 id="tour-title"></h1>
+        <p id="tour-summary" class="hero-summary"></p>
+        <div class="meta-row">
+          <span id="start-date" class="meta-chip"></span>
+          <span id="day-count" class="meta-chip"></span>
+          <span id="transport" class="meta-chip"></span>
+        </div>
+      </section>
+
+      <section class="privacy-note">
+        <span aria-hidden="true">⌁</span>
+        <p>This public preview excludes private notes, wallet data and exact accommodation details.</p>
+      </section>
+
+      <div class="section-heading">
+        <div><span class="section-kicker">ITINERARY</span><h2>Your tour plan</h2></div>
+        <button id="expand-all" class="text-button" type="button">Expand all</button>
+      </div>
+      <div id="days" class="days"></div>
+
+      <section class="join-card">
+        <img src="assets/images/app-icon.png" alt="">
+        <div><h2>Continue in NomadX</h2><p>Open the detailed tour in the app. Joining or editing always requires sign-in and the owner’s approval.</p></div>
+        <a class="primary-action" data-open-app href="#">Open in NomadX</a>
+        <a class="secondary-action" href="https://apps.apple.com/app/id6797188085">Download on the App Store</a>
+      </section>
+    </article>
+  </main>
+
+  <footer>NomadX AI · Shared itineraries are planning aids. Verify opening hours and directions before travel.</footer>
+</body>
+</html>

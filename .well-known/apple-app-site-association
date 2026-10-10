@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["2FT2S9N7NE.com.turgayyucel.nomadxai"],
+        "components": [
+          {
+            "/": "/tour.html",
+            "?": { "share": "*" },
+            "comment": "Open a shared regional tour in NomadX"
+          }
+        ]
+      }
+    ]
+  }
+}
