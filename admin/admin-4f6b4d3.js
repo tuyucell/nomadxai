@@ -17,6 +17,11 @@ const state = {
   aiUsage: null,
   announcements: [],
   currentSection: "overview",
+  routingPeriodHours: 24,
+  aiRoutePeriodHours: 24,
+  aiTourPeriodHours: 24,
+  syncPeriodHours: 24,
+  sharePeriodHours: 24,
 };
 
 const AI_QUALITY_PRESETS = {
@@ -191,11 +196,15 @@ async function refreshAll() {
   const refreshButton = document.querySelector("#refreshButton");
   setBusy(refreshButton, true, "Refreshing…");
   try {
-    await Promise.all([
+    const panelResults = await Promise.allSettled([
       loadOverview(),
       loadAiUsage(),
       loadFeatureFlags(),
       loadRoutingMetrics(),
+      loadAiRouteMetrics(),
+      loadAiTourMetrics(),
+      loadSyncHealthMetrics(),
+      loadShareEndpointMetrics(),
       loadUsers(),
       loadActivity(),
       loadActivityInsights(),
@@ -206,6 +215,11 @@ async function refreshAll() {
       state.context.role === "owner" ? loadAudit() : Promise.resolve(),
       state.context.role === "owner" ? loadAdmins() : Promise.resolve(),
     ]);
+    const failedPanels = panelResults.filter((result) => result.status === "rejected");
+    if (failedPanels.length) {
+      console.error("Admin panels failed", failedPanels.map((result) => result.reason));
+      showToast(`${failedPanels.length} dashboard panel(s) are unavailable.`, true);
+    }
     document.querySelector("#lastRefresh").textContent =
       `Updated ${new Intl.DateTimeFormat("en", { timeStyle: "short" }).format(new Date())}`;
   } catch (error) {
@@ -217,30 +231,72 @@ async function refreshAll() {
 }
 
 async function loadOverview() {
-  state.summary = await callRpc("admin_dashboard_summary");
+  let rpcError;
+  try {
+    state.summary = await callRpc("admin_dashboard_summary");
+  } catch (error) {
+    rpcError = error;
+    state.summary = { panel_status: {} };
+  }
+  const status = state.summary.panel_status || {};
+  const isAvailable = (key) => status[key]?.status === "available";
+  const displayValue = (key, value) => isAvailable(key) && value != null && Number.isFinite(Number(value))
+    ? Number(value).toLocaleString()
+    : "Unavailable";
   const metrics = [
-    ["Total users", state.summary.total_users, `+${state.summary.new_users_7d} in 7 days`],
-    ["Active users", state.summary.active_users_7d, "Last 7 days · opt-in"],
-    ["AI requests", state.summary.ai_requests_today, "Today"],
-    ["Open reports", state.summary.open_reports, `${state.summary.routes_total} total routes`],
+    ["Total users", "total_users", state.summary.total_users,
+      isAvailable("new_users_7d") ? `+${state.summary.new_users_7d} in 7 days` : "7-day data unavailable"],
+    ["Active users", "active_users_7d", state.summary.active_users_7d, "Last 7 days · opt-in"],
+    ["AI requests", "ai_requests_today", state.summary.ai_requests_today, "Today"],
+    ["Open reports", "open_reports", state.summary.open_reports,
+      isAvailable("routes_total") ? `${state.summary.routes_total} total routes` : "Route data unavailable"],
   ];
   const grid = document.querySelector("#metricGrid");
   grid.replaceChildren();
-  metrics.forEach(([label, value, detail]) => {
+  metrics.forEach(([label, key, value, detail]) => {
     const card = makeElement("article", "metric-card");
     card.append(
       makeElement("small", "", label),
-      makeElement("strong", "metric-value", Number(value || 0).toLocaleString()),
+      makeElement("strong", "metric-value", displayValue(key, value)),
       makeElement("span", "metric-detail", detail),
     );
     grid.append(card);
   });
 
   const reportBadge = document.querySelector("#reportBadge");
-  const openReports = Number(state.summary.open_reports || 0);
-  reportBadge.textContent = String(openReports);
-  reportBadge.hidden = openReports === 0;
-  renderEventChart(state.summary.event_series || []);
+  const reportsAvailable = isAvailable("open_reports");
+  const openReports = reportsAvailable ? Number(state.summary.open_reports) : null;
+  reportBadge.textContent = reportsAvailable ? String(openReports) : "!";
+  reportBadge.hidden = reportsAvailable && openReports === 0;
+  if (isAvailable("event_series")) {
+    renderEventChart(state.summary.event_series || []);
+  } else {
+    const chart = document.querySelector("#eventChart");
+    chart.replaceChildren(makeElement("p", "empty-state", "Activity data unavailable."));
+  }
+  renderAiCosts(state.summary.ai_costs_24h, isAvailable("ai_costs_24h"));
+  if (rpcError) throw rpcError;
+}
+
+function renderAiCosts(payload, available) {
+  const grid = document.querySelector("#aiCostMetrics");
+  grid.replaceChildren();
+  for (const [key, label] of [["daily_route", "Daily route"], ["regional_tour", "Regional tour"]]) {
+    const row = available ? payload?.[key] : null;
+    const cents = row?.total_cost_usd_cents;
+    const hasAmount = cents != null && Number.isFinite(Number(cents));
+    const partial = row?.cost_status === "partial";
+    const amount = hasAmount ? new Intl.NumberFormat("en", {
+      style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 4,
+    }).format(Number(cents) / 100) : "Unavailable";
+    const card = makeElement("article", "mini-metric");
+    card.append(makeElement("small", "", label),
+      makeElement("strong", "", partial && hasAmount ? `Known subtotal ${amount}` : amount),
+      makeElement("span", "metric-detail", !row ? "Cost data unavailable" : partial
+        ? `Partial · ${row.unknown_usage_events} unknown usage · ${row.unpriced_usage_events} unpriced attempts`
+        : `${row.requests} provider attempts · verified tariff`));
+    grid.append(card);
+  }
 }
 
 function formatCompactNumber(value) {
@@ -321,23 +377,50 @@ async function loadFeatureFlags() {
 }
 
 async function loadRoutingMetrics() {
+  const periodHours = state.routingPeriodHours;
+
+  // Update title
+  const title = document.querySelector("#routingHealthTitle");
+  const periodLabel = periodHours === 24 ? "24 hours" : periodHours === 168 ? "7 days" : "30 days";
+  title.textContent = `OSM route preview · last ${periodLabel}`;
+
+  // Load summary metrics
   const metrics = await callRpc("admin_get_route_geometry_metrics", {
-    period_hours: 24,
+    period_hours: periodHours,
   });
   const requests = Number(metrics.requests || 0);
   const errors = Number(metrics.errors || 0);
   const errorRate = requests ? `${((errors / requests) * 100).toFixed(1)}%` : "0%";
+  const warnings = metrics.warnings || {};
+
+  // Quota usage display
+  const quotaWarning = warnings.quota_usage || {};
+  const quotaText = quotaWarning.requests_today !== undefined
+    ? `${quotaWarning.requests_today} / ${quotaWarning.limit} (${quotaWarning.current?.toFixed(1) || 0}%)`
+    : "No data";
+
   const values = [
-    ["Requests", requests],
-    ["Error rate", errorRate],
-    ["P50 latency", `${metrics.p50_latency_ms || 0} ms`],
-    ["P95 latency", `${metrics.p95_latency_ms || 0} ms`],
+    ["Requests", requests, null],
+    ["Error rate", errorRate, warnings.error_rate],
+    ["P50 latency", `${metrics.p50_latency_ms || 0} ms`, null],
+    ["P95 latency", `${metrics.p95_latency_ms || 0} ms`, warnings.p95_latency],
+    ["Daily quota", quotaText, warnings.quota_usage],
   ];
   const grid = document.querySelector("#routingMetricGrid");
   grid.replaceChildren();
-  values.forEach(([label, value]) => {
+  values.forEach(([label, value, warning]) => {
     const card = makeElement("article", "mini-metric");
-    card.append(makeElement("small", "", label), makeElement("strong", "", value));
+    if (warning?.triggered) {
+      card.classList.add("has-warning");
+    }
+    const labelWrapper = makeElement("small", "");
+    labelWrapper.textContent = label;
+    if (warning?.triggered) {
+      const badge = makeElement("span", "warning-badge", "!");
+      badge.title = `Threshold: ${warning.threshold}${label.includes("rate") ? "%" : label.includes("latency") ? " ms" : "%"}`;
+      labelWrapper.append(" ", badge);
+    }
+    card.append(labelWrapper, makeElement("strong", "", value));
     grid.append(card);
   });
   const status = document.querySelector("#routingProviderStatus");
@@ -351,6 +434,688 @@ async function loadRoutingMetrics() {
   if (!(metrics.codes || []).length) {
     breakdown.append(makeElement("span", "table-secondary", "No route requests recorded yet."));
   }
+
+  // Load and render trend chart
+  try {
+    const series = await callRpc("admin_get_routing_health_series", {
+      period_hours: periodHours,
+    });
+    renderRoutingTrendChart(series);
+  } catch (error) {
+    console.error("Routing trend chart failed", error);
+    const chart = document.querySelector("#routingTrendChart");
+    chart.replaceChildren();
+    chart.append(makeElement("p", "table-secondary", "Trend chart unavailable."));
+  }
+}
+
+function renderRoutingTrendChart(data) {
+  const chart = document.querySelector("#routingTrendChart");
+  chart.replaceChildren();
+
+  const series = data.series || [];
+  if (!series.length) {
+    chart.append(makeElement("p", "table-secondary", "No routing data for this period."));
+    return;
+  }
+
+  // Find max values for scaling
+  const maxRequests = Math.max(1, ...series.map((item) => Number(item.requests || 0)));
+  const maxLatency = Math.max(1, ...series.map((item) => Number(item.p95_latency_ms || 0)));
+
+  // Create chart container with two y-axes
+  const chartContainer = makeElement("div", "trend-chart-container");
+
+  // Requests/errors line chart
+  const requestsChart = makeElement("div", "trend-line-chart");
+  series.forEach((item, index) => {
+    const group = makeElement("div", "trend-bar-group");
+
+    // Request bar (green background)
+    const requestBar = makeElement("div", "trend-bar trend-bar-requests");
+    const requests = Number(item.requests || 0);
+    const errors = Number(item.errors || 0);
+    requestBar.style.height = `${Math.round((requests / maxRequests) * 100)}%`;
+    requestBar.title = `${requests} requests`;
+
+    // Error overlay (red)
+    if (errors > 0) {
+      const errorBar = makeElement("div", "trend-bar-errors");
+      errorBar.style.height = `${Math.round((errors / requests) * 100)}%`;
+      errorBar.title = `${errors} errors`;
+      requestBar.append(errorBar);
+    }
+
+    // Time label (show every N buckets based on period)
+    const bucket = new Date(item.bucket);
+    const bucketHours = data.bucket_hours || 1;
+    const showLabel = bucketHours === 1
+      ? index % 6 === 0  // Every 6 hours for hourly
+      : index % 3 === 0;  // Every 3 days for daily
+
+    const label = makeElement("span", "trend-label");
+    if (showLabel) {
+      label.textContent = bucketHours === 1
+        ? new Intl.DateTimeFormat("en", { hour: "numeric" }).format(bucket)
+        : new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(bucket);
+    }
+
+    group.append(requestBar, label);
+    requestsChart.append(group);
+  });
+
+  // P95 latency line (overlay)
+  const latencyLine = makeElement("svg", "trend-latency-line");
+  latencyLine.setAttribute("viewBox", `0 0 ${series.length * 20} 100`);
+  latencyLine.setAttribute("preserveAspectRatio", "none");
+
+  const points = series.map((item, index) => {
+    const x = index * 20 + 10;
+    const latency = Number(item.p95_latency_ms || 0);
+    const y = 100 - Math.round((latency / maxLatency) * 100);
+    return `${x},${y}`;
+  }).join(" ");
+
+  const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  polyline.setAttribute("points", points);
+  polyline.setAttribute("fill", "none");
+  polyline.setAttribute("stroke", "#6366f1");
+  polyline.setAttribute("stroke-width", "2");
+  latencyLine.append(polyline);
+
+  // Legend
+  const legend = makeElement("div", "trend-legend");
+  legend.append(
+    makeElement("span", "trend-legend-item", "● Requests"),
+    makeElement("span", "trend-legend-item trend-legend-errors", "● Errors"),
+    makeElement("span", "trend-legend-item trend-legend-latency", "— P95 latency"),
+  );
+
+  chartContainer.append(requestsChart, latencyLine, legend);
+  chart.append(chartContainer);
+}
+
+async function loadAiRouteMetrics() {
+  const periodHours = state.aiRoutePeriodHours;
+
+  // Update title
+  const title = document.querySelector("#aiRouteHealthTitle");
+  const periodLabel = periodHours === 24 ? "24 hours" : periodHours === 168 ? "7 days" : "30 days";
+  title.textContent = `AI daily route generation · last ${periodLabel}`;
+
+  // Load summary metrics
+  const metrics = await callRpc("admin_get_ai_daily_route_metrics", {
+    period_hours: periodHours,
+  });
+  const requests = Number(metrics.requests || 0);
+  const errors = Number(metrics.errors || 0);
+  const errorRate = requests ? `${((errors / requests) * 100).toFixed(1)}%` : "0%";
+
+  const values = [
+    ["Requests", requests],
+    ["Error rate", errorRate],
+    ["P50 latency", `${metrics.p50_latency_ms || 0} ms`],
+    ["P95 latency", `${metrics.p95_latency_ms || 0} ms`],
+    ["Avg tokens", `${metrics.avg_input_tokens || 0} in / ${metrics.avg_output_tokens || 0} out`],
+    ["Web searches", metrics.total_web_searches || 0],
+  ];
+  const grid = document.querySelector("#aiRouteMetricGrid");
+  grid.replaceChildren();
+  values.forEach(([label, value]) => {
+    const card = makeElement("article", "mini-metric");
+    card.append(makeElement("small", "", label), makeElement("strong", "", value));
+    grid.append(card);
+  });
+  const status = document.querySelector("#aiRouteServiceStatus");
+  status.textContent = metrics.enabled ? "Service enabled" : "Service disabled";
+  status.classList.toggle("pill-negative", !metrics.enabled);
+
+  // Model breakdown
+  const breakdown = document.querySelector("#aiRouteModelBreakdown");
+  breakdown.replaceChildren();
+  (metrics.by_model || []).forEach((entry) => {
+    breakdown.append(makeElement("code", "", `${entry.model}: ${entry.count} (${entry.avg_latency_ms}ms)`));
+  });
+  if (!(metrics.by_model || []).length) {
+    breakdown.append(makeElement("span", "table-secondary", "No AI route requests recorded yet."));
+  }
+
+  // Load and render trend chart
+  try {
+    const series = await callRpc("admin_get_ai_daily_route_series", {
+      period_hours: periodHours,
+    });
+    renderAiRouteTrendChart(series);
+  } catch (error) {
+    console.error("AI route trend chart failed", error);
+    const chart = document.querySelector("#aiRouteTrendChart");
+    chart.replaceChildren();
+    chart.append(makeElement("p", "table-secondary", "Trend chart unavailable."));
+  }
+}
+
+function renderAiRouteTrendChart(data) {
+  const chart = document.querySelector("#aiRouteTrendChart");
+  chart.replaceChildren();
+
+  const series = data.series || [];
+  if (!series.length) {
+    chart.append(makeElement("p", "table-secondary", "No AI route data for this period."));
+    return;
+  }
+
+  // Find max values for scaling
+  const maxRequests = Math.max(1, ...series.map((item) => Number(item.requests || 0)));
+  const maxLatency = Math.max(1, ...series.map((item) => Number(item.p95_latency_ms || 0)));
+
+  const chartContainer = makeElement("div", "trend-chart-container");
+
+  // Requests/errors bar chart
+  const requestsChart = makeElement("div", "trend-line-chart");
+  series.forEach((item, index) => {
+    const group = makeElement("div", "trend-bar-group");
+
+    // Request bar (green background)
+    const requestBar = makeElement("div", "trend-bar trend-bar-requests");
+    const requests = Number(item.requests || 0);
+    const errors = Number(item.errors || 0);
+    requestBar.style.height = `${Math.round((requests / maxRequests) * 100)}%`;
+    requestBar.title = `${requests} requests`;
+
+    // Error overlay (red)
+    if (errors > 0) {
+      const errorBar = makeElement("div", "trend-bar-errors");
+      errorBar.style.height = `${Math.round((errors / requests) * 100)}%`;
+      errorBar.title = `${errors} errors`;
+      requestBar.append(errorBar);
+    }
+
+    // Time label
+    const bucket = new Date(item.bucket);
+    const bucketHours = data.bucket_hours || 1;
+    const showLabel = bucketHours === 1
+      ? index % 6 === 0
+      : index % 3 === 0;
+
+    const label = makeElement("span", "trend-label");
+    if (showLabel) {
+      label.textContent = bucketHours === 1
+        ? new Intl.DateTimeFormat("en", { hour: "numeric" }).format(bucket)
+        : new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(bucket);
+    }
+
+    group.append(requestBar, label);
+    requestsChart.append(group);
+  });
+
+  // P95 latency SVG line
+  const latencyLine = makeElement("svg", "trend-latency-line");
+  latencyLine.setAttribute("viewBox", `0 0 ${series.length * 20} 100`);
+  latencyLine.setAttribute("preserveAspectRatio", "none");
+
+  const points = series.map((item, index) => {
+    const x = index * 20 + 10;
+    const latency = Number(item.p95_latency_ms || 0);
+    const y = 100 - Math.round((latency / maxLatency) * 100);
+    return `${x},${y}`;
+  }).join(" ");
+
+  const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  polyline.setAttribute("points", points);
+  polyline.setAttribute("fill", "none");
+  polyline.setAttribute("stroke", "#6366f1");
+  polyline.setAttribute("stroke-width", "2");
+  latencyLine.append(polyline);
+
+  // Legend
+  const legend = makeElement("div", "trend-legend");
+  legend.append(
+    makeElement("span", "trend-legend-item", "● Requests"),
+    makeElement("span", "trend-legend-item trend-legend-errors", "● Errors"),
+    makeElement("span", "trend-legend-item trend-legend-latency", "— P95 latency"),
+  );
+
+  chartContainer.append(requestsChart, latencyLine, legend);
+  chart.append(chartContainer);
+}
+
+async function loadAiTourMetrics() {
+  const periodHours = state.aiTourPeriodHours;
+
+  // Update title
+  const title = document.querySelector("#aiTourHealthTitle");
+  const periodLabel = periodHours === 24 ? "24 hours" : periodHours === 168 ? "7 days" : "30 days";
+  title.textContent = `AI regional tour generation · last ${periodLabel}`;
+
+  // Load summary metrics
+  const metrics = await callRpc("admin_get_ai_regional_tour_metrics", {
+    period_hours: periodHours,
+  });
+  const requests = Number(metrics.requests || 0);
+  const errors = Number(metrics.errors || 0);
+  const errorRate = requests ? `${((errors / requests) * 100).toFixed(1)}%` : "0%";
+
+  const values = [
+    ["Requests", requests],
+    ["Error rate", errorRate],
+    ["P50 latency", `${metrics.p50_latency_ms || 0} ms`],
+    ["P95 latency", `${metrics.p95_latency_ms || 0} ms`],
+    ["Avg tokens", `${metrics.avg_input_tokens || 0} in / ${metrics.avg_output_tokens || 0} out`],
+    ["Web searches", metrics.total_web_searches || 0],
+  ];
+  const grid = document.querySelector("#aiTourMetricGrid");
+  grid.replaceChildren();
+  values.forEach(([label, value]) => {
+    const card = makeElement("article", "mini-metric");
+    card.append(makeElement("small", "", label), makeElement("strong", "", value));
+    grid.append(card);
+  });
+  const status = document.querySelector("#aiTourServiceStatus");
+  status.textContent = metrics.enabled ? "Service enabled" : "Service disabled";
+  status.classList.toggle("pill-negative", !metrics.enabled);
+
+  // Model breakdown
+  const breakdown = document.querySelector("#aiTourModelBreakdown");
+  breakdown.replaceChildren();
+  (metrics.by_model || []).forEach((entry) => {
+    breakdown.append(makeElement("code", "", `${entry.model}: ${entry.count} (${entry.avg_latency_ms}ms)`));
+  });
+  if (!(metrics.by_model || []).length) {
+    breakdown.append(makeElement("span", "table-secondary", "No AI tour requests recorded yet."));
+  }
+
+  // Load and render trend chart
+  try {
+    const series = await callRpc("admin_get_ai_regional_tour_series", {
+      period_hours: periodHours,
+    });
+    renderAiTourTrendChart(series);
+  } catch (error) {
+    console.error("AI tour trend chart failed", error);
+    const chart = document.querySelector("#aiTourTrendChart");
+    chart.replaceChildren();
+    chart.append(makeElement("p", "table-secondary", "Trend chart unavailable."));
+  }
+}
+
+function renderAiTourTrendChart(data) {
+  const chart = document.querySelector("#aiTourTrendChart");
+  chart.replaceChildren();
+
+  const series = data.series || [];
+  if (!series.length) {
+    chart.append(makeElement("p", "table-secondary", "No AI tour data for this period."));
+    return;
+  }
+
+  // Find max values for scaling
+  const maxRequests = Math.max(1, ...series.map((item) => Number(item.requests || 0)));
+  const maxLatency = Math.max(1, ...series.map((item) => Number(item.p95_latency_ms || 0)));
+
+  const chartContainer = makeElement("div", "trend-chart-container");
+
+  // Requests/errors bar chart
+  const requestsChart = makeElement("div", "trend-line-chart");
+  series.forEach((item, index) => {
+    const group = makeElement("div", "trend-bar-group");
+
+    // Request bar (green background)
+    const requestBar = makeElement("div", "trend-bar trend-bar-requests");
+    const requests = Number(item.requests || 0);
+    const errors = Number(item.errors || 0);
+    requestBar.style.height = `${Math.round((requests / maxRequests) * 100)}%`;
+    requestBar.title = `${requests} requests`;
+
+    // Error overlay (red)
+    if (errors > 0) {
+      const errorBar = makeElement("div", "trend-bar-errors");
+      errorBar.style.height = `${Math.round((errors / requests) * 100)}%`;
+      errorBar.title = `${errors} errors`;
+      requestBar.append(errorBar);
+    }
+
+    // Time label
+    const bucket = new Date(item.bucket);
+    const bucketHours = data.bucket_hours || 1;
+    const showLabel = bucketHours === 1
+      ? index % 6 === 0
+      : index % 3 === 0;
+
+    const label = makeElement("span", "trend-label");
+    if (showLabel) {
+      label.textContent = bucketHours === 1
+        ? new Intl.DateTimeFormat("en", { hour: "numeric" }).format(bucket)
+        : new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(bucket);
+    }
+
+    group.append(requestBar, label);
+    requestsChart.append(group);
+  });
+
+  // P95 latency SVG line
+  const latencyLine = makeElement("svg", "trend-latency-line");
+  latencyLine.setAttribute("viewBox", `0 0 ${series.length * 20} 100`);
+  latencyLine.setAttribute("preserveAspectRatio", "none");
+
+  const points = series.map((item, index) => {
+    const x = index * 20 + 10;
+    const latency = Number(item.p95_latency_ms || 0);
+    const y = 100 - Math.round((latency / maxLatency) * 100);
+    return `${x},${y}`;
+  }).join(" ");
+
+  const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  polyline.setAttribute("points", points);
+  polyline.setAttribute("fill", "none");
+  polyline.setAttribute("stroke", "#6366f1");
+  polyline.setAttribute("stroke-width", "2");
+  latencyLine.append(polyline);
+
+  // Legend
+  const legend = makeElement("div", "trend-legend");
+  legend.append(
+    makeElement("span", "trend-legend-item", "● Requests"),
+    makeElement("span", "trend-legend-item trend-legend-errors", "● Errors"),
+    makeElement("span", "trend-legend-item trend-legend-latency", "— P95 latency"),
+  );
+
+  chartContainer.append(requestsChart, latencyLine, legend);
+  chart.append(chartContainer);
+}
+
+async function loadSyncHealthMetrics() {
+  const periodHours = state.syncPeriodHours;
+
+  // Update title
+  const title = document.querySelector("#syncHealthTitle");
+  const periodLabel = periodHours === 24 ? "24 hours" : periodHours === 168 ? "7 days" : "30 days";
+  title.textContent = `Sync operations by domain · last ${periodLabel}`;
+
+  // Load summary metrics
+  const metrics = await callRpc("admin_get_sync_health_metrics", {
+    period_hours: periodHours,
+  });
+  const totalRequests = Number(metrics.total_requests || 0);
+  const totalErrors = Number(metrics.total_errors || 0);
+  const errorRate = totalRequests ? `${((totalErrors / totalRequests) * 100).toFixed(1)}%` : "0%";
+
+  const values = [
+    ["Requests", totalRequests],
+    ["Error rate", errorRate],
+    ["P95 latency", `${metrics.p95_latency_ms || 0} ms`],
+    ["Avg latency", `${metrics.avg_latency_ms || 0} ms`],
+  ];
+  const grid = document.querySelector("#syncMetricGrid");
+  grid.replaceChildren();
+  values.forEach(([label, value]) => {
+    const card = makeElement("article", "mini-metric");
+    card.append(makeElement("small", "", label), makeElement("strong", "", value));
+    grid.append(card);
+  });
+
+  const status = document.querySelector("#syncHealthStatus");
+  status.textContent = totalRequests > 0 ? "Active" : "No data";
+  status.classList.toggle("pill-negative", totalRequests === 0);
+
+  // Domain breakdown
+  const domainBreakdown = document.querySelector("#syncDomainBreakdown");
+  domainBreakdown.replaceChildren();
+  (metrics.by_domain || []).forEach((entry) => {
+    const domainCard = makeElement("div", "domain-sync-entry");
+    const header = makeElement("div", "");
+    header.append(
+      makeElement("strong", "", `${entry.domain}: ${entry.requests}`),
+      makeElement("span", entry.error_rate > 10 ? "pill-negative" : "", ` ${entry.error_rate}% errors`)
+    );
+    domainCard.append(header);
+    domainBreakdown.append(domainCard);
+  });
+  if (!(metrics.by_domain || []).length) {
+    domainBreakdown.append(makeElement("span", "table-secondary", "No sync operations recorded yet."));
+  }
+
+  // Load and render trend chart
+  try {
+    const series = await callRpc("admin_get_sync_health_series", {
+      period_hours: periodHours,
+    });
+    renderSyncTrendChart(series);
+  } catch (error) {
+    console.error("Sync trend chart failed", error);
+    const chart = document.querySelector("#syncTrendChart");
+    chart.replaceChildren();
+    chart.append(makeElement("p", "table-secondary", "Trend chart unavailable."));
+  }
+}
+
+function renderSyncTrendChart(data) {
+  const chart = document.querySelector("#syncTrendChart");
+  chart.replaceChildren();
+
+  const series = data.series || [];
+  if (!series.length) {
+    chart.append(makeElement("p", "table-secondary", "No sync data for this period."));
+    return;
+  }
+
+  // Find max values for scaling
+  const maxRequests = Math.max(1, ...series.map((item) => Number(item.requests || 0)));
+  const maxLatency = Math.max(1, ...series.map((item) => Number(item.p95_latency_ms || 0)));
+
+  const chartContainer = makeElement("div", "trend-chart-container");
+
+  // Requests/errors bar chart
+  const requestsChart = makeElement("div", "trend-line-chart");
+  series.forEach((item, index) => {
+    const group = makeElement("div", "trend-bar-group");
+
+    // Request bar (green background)
+    const requestBar = makeElement("div", "trend-bar trend-bar-requests");
+    const requests = Number(item.requests || 0);
+    const errors = Number(item.errors || 0);
+    requestBar.style.height = `${Math.round((requests / maxRequests) * 100)}%`;
+    requestBar.title = `${requests} requests`;
+
+    // Error overlay (red)
+    if (errors > 0) {
+      const errorBar = makeElement("div", "trend-bar-errors");
+      errorBar.style.height = `${Math.round((errors / requests) * 100)}%`;
+      errorBar.title = `${errors} errors`;
+      requestBar.append(errorBar);
+    }
+
+    // Time label
+    const bucket = new Date(item.bucket);
+    const bucketHours = data.bucket_hours || 1;
+    const showLabel = bucketHours === 1
+      ? index % 6 === 0
+      : index % 3 === 0;
+
+    const label = makeElement("span", "trend-label");
+    if (showLabel) {
+      label.textContent = bucketHours === 1
+        ? new Intl.DateTimeFormat("en", { hour: "numeric" }).format(bucket)
+        : new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(bucket);
+    }
+
+    group.append(requestBar, label);
+    requestsChart.append(group);
+  });
+
+  // P95 latency SVG line
+  const latencyLine = makeElement("svg", "trend-latency-line");
+  latencyLine.setAttribute("viewBox", `0 0 ${series.length * 20} 100`);
+  latencyLine.setAttribute("preserveAspectRatio", "none");
+
+  const points = series.map((item, index) => {
+    const x = index * 20 + 10;
+    const latency = Number(item.p95_latency_ms || 0);
+    const y = 100 - Math.round((latency / maxLatency) * 100);
+    return `${x},${y}`;
+  }).join(" ");
+
+  const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  polyline.setAttribute("points", points);
+  polyline.setAttribute("fill", "none");
+  polyline.setAttribute("stroke", "#6366f1");
+  polyline.setAttribute("stroke-width", "2");
+  latencyLine.append(polyline);
+
+  // Legend
+  const legend = makeElement("div", "trend-legend");
+  legend.append(
+    makeElement("span", "trend-legend-item", "● Requests"),
+    makeElement("span", "trend-legend-item trend-legend-errors", "● Errors"),
+    makeElement("span", "trend-legend-item trend-legend-latency", "— P95 latency"),
+  );
+
+  chartContainer.append(requestsChart, latencyLine, legend);
+  chart.append(chartContainer);
+}
+
+async function loadShareEndpointMetrics() {
+  const periodHours = state.sharePeriodHours;
+
+  // Update title
+  const title = document.querySelector("#shareHealthTitle");
+  const periodLabel = periodHours === 24 ? "24 hours" : periodHours === 168 ? "7 days" : "30 days";
+  title.textContent = `Public share endpoints · last ${periodLabel}`;
+
+  // Load summary metrics
+  const metrics = await callRpc("admin_get_share_endpoint_metrics", {
+    period_hours: periodHours,
+  });
+  const totalRequests = Number(metrics.total_requests || 0);
+  const totalErrors = Number(metrics.total_errors || 0);
+  const errorRate = totalRequests ? `${((totalErrors / totalRequests) * 100).toFixed(1)}%` : "0%";
+
+  const values = [
+    ["Requests", totalRequests],
+    ["Error rate", errorRate],
+    ["P95 latency", `${metrics.p95_latency_ms || 0} ms`],
+    ["Avg latency", `${metrics.avg_latency_ms || 0} ms`],
+  ];
+  const grid = document.querySelector("#shareMetricGrid");
+  grid.replaceChildren();
+  values.forEach(([label, value]) => {
+    const card = makeElement("article", "mini-metric");
+    card.append(makeElement("small", "", label), makeElement("strong", "", value));
+    grid.append(card);
+  });
+
+  const status = document.querySelector("#shareHealthStatus");
+  status.textContent = totalRequests > 0 ? "Active" : "No data";
+  status.classList.toggle("pill-negative", totalRequests === 0);
+
+  // Endpoint breakdown
+  const endpointBreakdown = document.querySelector("#shareEndpointBreakdown");
+  endpointBreakdown.replaceChildren();
+  (metrics.by_endpoint || []).forEach((entry) => {
+    endpointBreakdown.append(
+      makeElement("code", "", `${entry.endpoint}: ${entry.requests} (${entry.error_rate}% errors, ${entry.avg_latency_ms}ms)`)
+    );
+  });
+  if (!(metrics.by_endpoint || []).length) {
+    endpointBreakdown.append(makeElement("span", "table-secondary", "No public share requests recorded yet."));
+  }
+
+  // Load and render trend chart
+  try {
+    const series = await callRpc("admin_get_share_endpoint_series", {
+      period_hours: periodHours,
+    });
+    renderShareTrendChart(series);
+  } catch (error) {
+    console.error("Share endpoint trend chart failed", error);
+    const chart = document.querySelector("#shareTrendChart");
+    chart.replaceChildren();
+    chart.append(makeElement("p", "table-secondary", "Trend chart unavailable."));
+  }
+}
+
+function renderShareTrendChart(data) {
+  const chart = document.querySelector("#shareTrendChart");
+  chart.replaceChildren();
+
+  const series = data.series || [];
+  if (!series.length) {
+    chart.append(makeElement("p", "table-secondary", "No share endpoint data for this period."));
+    return;
+  }
+
+  // Find max values for scaling
+  const maxRequests = Math.max(1, ...series.map((item) => Number(item.requests || 0)));
+  const maxLatency = Math.max(1, ...series.map((item) => Number(item.p95_latency_ms || 0)));
+
+  const chartContainer = makeElement("div", "trend-chart-container");
+
+  // Requests/errors bar chart
+  const requestsChart = makeElement("div", "trend-line-chart");
+  series.forEach((item, index) => {
+    const group = makeElement("div", "trend-bar-group");
+
+    // Request bar (green background)
+    const requestBar = makeElement("div", "trend-bar trend-bar-requests");
+    const requests = Number(item.requests || 0);
+    const errors = Number(item.errors || 0);
+    requestBar.style.height = `${Math.round((requests / maxRequests) * 100)}%`;
+    requestBar.title = `${requests} requests`;
+
+    // Error overlay (red)
+    if (errors > 0) {
+      const errorBar = makeElement("div", "trend-bar-errors");
+      errorBar.style.height = `${Math.round((errors / requests) * 100)}%`;
+      errorBar.title = `${errors} errors`;
+      requestBar.append(errorBar);
+    }
+
+    // Time label
+    const bucket = new Date(item.bucket);
+    const bucketHours = data.bucket_hours || 1;
+    const showLabel = bucketHours === 1
+      ? index % 6 === 0
+      : index % 3 === 0;
+
+    const label = makeElement("span", "trend-label");
+    if (showLabel) {
+      label.textContent = bucketHours === 1
+        ? new Intl.DateTimeFormat("en", { hour: "numeric" }).format(bucket)
+        : new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(bucket);
+    }
+
+    group.append(requestBar, label);
+    requestsChart.append(group);
+  });
+
+  // P95 latency SVG line
+  const latencyLine = makeElement("svg", "trend-latency-line");
+  latencyLine.setAttribute("viewBox", `0 0 ${series.length * 20} 100`);
+  latencyLine.setAttribute("preserveAspectRatio", "none");
+
+  const points = series.map((item, index) => {
+    const x = index * 20 + 10;
+    const latency = Number(item.p95_latency_ms || 0);
+    const y = 100 - Math.round((latency / maxLatency) * 100);
+    return `${x},${y}`;
+  }).join(" ");
+
+  const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  polyline.setAttribute("points", points);
+  polyline.setAttribute("fill", "none");
+  polyline.setAttribute("stroke", "#6366f1");
+  polyline.setAttribute("stroke-width", "2");
+  latencyLine.append(polyline);
+
+  // Legend
+  const legend = makeElement("div", "trend-legend");
+  legend.append(
+    makeElement("span", "trend-legend-item", "● Requests"),
+    makeElement("span", "trend-legend-item trend-legend-errors", "● Errors"),
+    makeElement("span", "trend-legend-item trend-legend-latency", "— P95 latency"),
+  );
+
+  chartContainer.append(requestsChart, latencyLine, legend);
+  chart.append(chartContainer);
 }
 
 function buildFlagCard(flag) {
@@ -1203,6 +1968,116 @@ document.querySelector("#reportStatusFilter").addEventListener("change", async (
   } catch (error) {
     showToast(error.message || "Reports could not be filtered.", true);
   }
+});
+
+document.querySelectorAll("#routingPeriodSelector .period-button").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const hours = Number(button.dataset.hours);
+    if (hours === state.routingPeriodHours) return;
+
+    state.routingPeriodHours = hours;
+
+    // Update active state
+    document.querySelectorAll("#routingPeriodSelector .period-button").forEach((btn) => {
+      btn.classList.toggle("is-active", btn === button);
+    });
+
+    // Reload metrics with new period
+    try {
+      await loadRoutingMetrics();
+    } catch (error) {
+      console.error("Routing metrics reload failed", error);
+      showToast(error.message || "Routing metrics could not be reloaded.", true);
+    }
+  });
+});
+
+document.querySelectorAll("#aiRoutePeriodSelector .period-button").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const hours = Number(button.dataset.hours);
+    if (hours === state.aiRoutePeriodHours) return;
+
+    state.aiRoutePeriodHours = hours;
+
+    // Update active state
+    document.querySelectorAll("#aiRoutePeriodSelector .period-button").forEach((btn) => {
+      btn.classList.toggle("is-active", btn === button);
+    });
+
+    // Reload metrics with new period
+    try {
+      await loadAiRouteMetrics();
+    } catch (error) {
+      console.error("AI route metrics reload failed", error);
+      showToast(error.message || "AI route metrics could not be reloaded.", true);
+    }
+  });
+});
+
+document.querySelectorAll("#aiTourPeriodSelector .period-button").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const hours = Number(button.dataset.hours);
+    if (hours === state.aiTourPeriodHours) return;
+
+    state.aiTourPeriodHours = hours;
+
+    // Update active state
+    document.querySelectorAll("#aiTourPeriodSelector .period-button").forEach((btn) => {
+      btn.classList.toggle("is-active", btn === button);
+    });
+
+    // Reload metrics with new period
+    try {
+      await loadAiTourMetrics();
+    } catch (error) {
+      console.error("AI tour metrics reload failed", error);
+      showToast(error.message || "AI tour metrics could not be reloaded.", true);
+    }
+  });
+});
+
+document.querySelectorAll("#syncPeriodSelector .period-button").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const hours = Number(button.dataset.hours);
+    if (hours === state.syncPeriodHours) return;
+
+    state.syncPeriodHours = hours;
+
+    // Update active state
+    document.querySelectorAll("#syncPeriodSelector .period-button").forEach((btn) => {
+      btn.classList.toggle("is-active", btn === button);
+    });
+
+    // Reload metrics with new period
+    try {
+      await loadSyncHealthMetrics();
+    } catch (error) {
+      console.error("Sync health metrics reload failed", error);
+      showToast(error.message || "Sync health metrics could not be reloaded.", true);
+    }
+  });
+});
+
+document.querySelectorAll("#sharePeriodSelector .period-button").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const hours = Number(button.dataset.hours);
+    if (hours === state.sharePeriodHours) return;
+
+    state.sharePeriodHours = hours;
+
+    // Update active state
+    document.querySelectorAll("#sharePeriodSelector .period-button").forEach((btn) => {
+      btn.classList.toggle("is-active", btn === button);
+    });
+
+    // Reload metrics with new period
+    try {
+      await loadShareEndpointMetrics();
+    } catch (error) {
+      console.error("Share endpoint metrics reload failed", error);
+      showToast(error.message || "Share endpoint metrics could not be reloaded.", true);
+    }
+  });
 });
 
 document.querySelector("#announcementCancel").addEventListener("click", resetAnnouncementForm);

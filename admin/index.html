@@ -11,7 +11,7 @@
   >
   <title>NomadX Control Room</title>
   <link rel="icon" href="../assets/images/app-icon.png">
-  <link rel="stylesheet" href="admin-4f6b4d3.css?v=20260929">
+  <link rel="stylesheet" href="admin-4f6b4d3.css?v=20261013wp2">
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -171,7 +171,7 @@
               <div>
                 <p class="eyebrow">Cost signals</p>
                 <h2>AI usage by model</h2>
-                <p>Raw provider token usage from newly generated routes. Pricing is intentionally not hard-coded because model rates change.</p>
+                <p>Successful route output only. The cost panel below includes all recorded provider attempts, including paid failures.</p>
               </div>
               <span class="privacy-chip">Last 30 days</span>
             </div>
@@ -193,6 +193,25 @@
               </table>
             </div>
           </article>
+          <article class="panel health-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Cost management</p>
+                <h2>AI provider costs · last 24 hours</h2>
+              </div>
+            </div>
+            <div id="aiCostMetrics" class="mini-metric-grid"></div>
+            <ul class="health-list">
+              <li><span class="status-dot status-ok"></span><span>Each attempt uses the verified tariff valid on its event date. Paid failures are included.</span></li>
+              <li><span class="status-dot status-ok"></span><span>Quota limits are enforced server-side via feature flag configs.</span></li>
+              <li><span class="status-dot status-warn"></span><span>Monitor daily request counts in AI service health panels below.</span></li>
+              <li><span class="status-dot status-warn"></span><span>Missing usage, unsupported pricing tiers or tools remain partial/unavailable, never free. Reasoning is not charged twice.</span></li>
+            </ul>
+            <p style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-secondary);">
+              <strong>Tariffs verified:</strong> 13 Oct 2026 · OpenAI Luna / Terra / Sol, standard tier, up to 272K input tokens; conservative expiry 20 Nov 2026. Estimates exclude taxes and provider credits.
+              <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noopener" style="color: var(--accent);">Official pricing</a>
+            </p>
+          </article>
         </section>
 
         <section id="section-flags" class="panel-section">
@@ -208,13 +227,101 @@
             <div class="panel-heading">
               <div>
                 <p class="eyebrow">Routing health</p>
-                <h2>OSM route preview · last 24 hours</h2>
+                <h2 id="routingHealthTitle">OSM route preview · last 24 hours</h2>
                 <p>No coordinates, place names, route geometry or user IDs are stored in these health events.</p>
               </div>
-              <span id="routingProviderStatus" class="privacy-chip">Loading…</span>
+              <div class="panel-heading-actions">
+                <div id="routingPeriodSelector" class="period-selector">
+                  <button class="period-button is-active" data-hours="24" type="button">24h</button>
+                  <button class="period-button" data-hours="168" type="button">7d</button>
+                  <button class="period-button" data-hours="720" type="button">30d</button>
+                </div>
+                <span id="routingProviderStatus" class="privacy-chip">Loading…</span>
+              </div>
             </div>
             <div id="routingMetricGrid" class="mini-metric-grid"></div>
+            <div id="routingTrendChart" class="routing-trend-chart"></div>
             <div id="routingCodeBreakdown" class="activity-properties"></div>
+          </article>
+          <article class="panel ai-usage-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">AI service health</p>
+                <h2 id="aiRouteHealthTitle">AI daily route generation · last 24 hours</h2>
+                <p>No user IDs, route content, place names or coordinates are stored in these health events.</p>
+              </div>
+              <div class="panel-heading-actions">
+                <div id="aiRoutePeriodSelector" class="period-selector">
+                  <button class="period-button is-active" data-hours="24" type="button">24h</button>
+                  <button class="period-button" data-hours="168" type="button">7d</button>
+                  <button class="period-button" data-hours="720" type="button">30d</button>
+                </div>
+                <span id="aiRouteServiceStatus" class="privacy-chip">Loading…</span>
+              </div>
+            </div>
+            <div id="aiRouteMetricGrid" class="mini-metric-grid"></div>
+            <div id="aiRouteTrendChart" class="routing-trend-chart"></div>
+            <div id="aiRouteModelBreakdown" class="activity-properties"></div>
+          </article>
+          <article class="panel ai-usage-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">AI service health</p>
+                <h2 id="aiTourHealthTitle">AI regional tour generation · last 24 hours</h2>
+                <p>No user IDs, tour content, place names or coordinates are stored in these health events.</p>
+              </div>
+              <div class="panel-heading-actions">
+                <div id="aiTourPeriodSelector" class="period-selector">
+                  <button class="period-button is-active" data-hours="24" type="button">24h</button>
+                  <button class="period-button" data-hours="168" type="button">7d</button>
+                  <button class="period-button" data-hours="720" type="button">30d</button>
+                </div>
+                <span id="aiTourServiceStatus" class="privacy-chip">Loading…</span>
+              </div>
+            </div>
+            <div id="aiTourMetricGrid" class="mini-metric-grid"></div>
+            <div id="aiTourTrendChart" class="routing-trend-chart"></div>
+            <div id="aiTourModelBreakdown" class="activity-properties"></div>
+          </article>
+          <article class="panel ai-usage-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Data sync health</p>
+                <h2 id="syncHealthTitle">Sync operations by domain · last 24 hours</h2>
+                <p>No user IDs, record content or sensitive data are stored in these health events.</p>
+              </div>
+              <div class="panel-heading-actions">
+                <div id="syncPeriodSelector" class="period-selector">
+                  <button class="period-button is-active" data-hours="24" type="button">24h</button>
+                  <button class="period-button" data-hours="168" type="button">7d</button>
+                  <button class="period-button" data-hours="720" type="button">30d</button>
+                </div>
+                <span id="syncHealthStatus" class="privacy-chip">Loading…</span>
+              </div>
+            </div>
+            <div id="syncMetricGrid" class="mini-metric-grid"></div>
+            <div id="syncTrendChart" class="routing-trend-chart"></div>
+            <div id="syncDomainBreakdown" class="activity-properties"></div>
+          </article>
+          <article class="panel ai-usage-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Public endpoints health</p>
+                <h2 id="shareHealthTitle">Public share endpoints · last 24 hours</h2>
+                <p>No user IDs, share tokens, route/tour content or place names are stored in these health events.</p>
+              </div>
+              <div class="panel-heading-actions">
+                <div id="sharePeriodSelector" class="period-selector">
+                  <button class="period-button is-active" data-hours="24" type="button">24h</button>
+                  <button class="period-button" data-hours="168" type="button">7d</button>
+                  <button class="period-button" data-hours="720" type="button">30d</button>
+                </div>
+                <span id="shareHealthStatus" class="privacy-chip">Loading…</span>
+              </div>
+            </div>
+            <div id="shareMetricGrid" class="mini-metric-grid"></div>
+            <div id="shareTrendChart" class="routing-trend-chart"></div>
+            <div id="shareEndpointBreakdown" class="activity-properties"></div>
           </article>
         </section>
 
@@ -454,6 +561,6 @@
     </div>
   </div>
 
-  <script type="module" src="admin-4f6b4d3.js?v=2026101301"></script>
+  <script type="module" src="admin-4f6b4d3.js?v=20261013wp2"></script>
 </body>
 </html>

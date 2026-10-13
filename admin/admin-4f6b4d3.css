@@ -526,6 +526,151 @@ textarea:focus {
   font-weight: 800;
 }
 
+.panel-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.period-selector {
+  display: inline-flex;
+  gap: 6px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(5, 7, 20, 0.6);
+}
+
+.period-button {
+  min-height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 750;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.period-button:hover {
+  background: rgba(109, 93, 252, 0.08);
+  color: var(--text);
+}
+
+.period-button.is-active {
+  background: var(--primary);
+  color: white;
+}
+
+.routing-trend-chart {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.trend-chart-container {
+  position: relative;
+  height: 180px;
+}
+
+.trend-line-chart {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.trend-bar-group {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.trend-bar {
+  position: relative;
+  width: 100%;
+  max-width: 22px;
+  min-height: 3px;
+  border-radius: 5px 5px 2px 2px;
+  background: rgba(54, 211, 153, 0.3);
+  transition: background 140ms ease;
+}
+
+.trend-bar:hover {
+  background: rgba(54, 211, 153, 0.5);
+}
+
+.trend-bar-errors {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-radius: 5px 5px 2px 2px;
+  background: rgba(255, 101, 122, 0.75);
+}
+
+.trend-label {
+  min-height: 14px;
+  color: var(--muted);
+  font-size: 9px;
+  text-align: center;
+}
+
+.trend-latency-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 28px;
+  pointer-events: none;
+}
+
+.trend-legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.trend-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trend-legend-errors {
+  color: #ff93a1;
+}
+
+.trend-legend-latency {
+  color: #8f84ff;
+}
+
+.activity-properties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.activity-properties code {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(5, 7, 20, 0.5);
+  color: #b8bbd1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
 .event-chart {
   height: 220px;
   display: grid;
@@ -1059,6 +1204,26 @@ tbody tr:hover {
   display: block;
   margin-top: 12px;
   font-size: 25px;
+}
+
+.mini-metric.has-warning {
+  border-color: rgba(255, 101, 122, 0.28);
+  background: linear-gradient(150deg, rgba(31, 17, 23, 0.9), rgba(19, 15, 20, 0.95));
+}
+
+.warning-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 101, 122, 0.16);
+  color: #ff8d9c;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 .retention-card {
