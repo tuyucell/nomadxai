@@ -195,6 +195,7 @@ async function refreshAll() {
       loadOverview(),
       loadAiUsage(),
       loadFeatureFlags(),
+      loadRoutingMetrics(),
       loadUsers(),
       loadActivity(),
       loadActivityInsights(),
@@ -316,6 +317,39 @@ async function loadFeatureFlags() {
   const retentionInput = document.querySelector("#retentionDaysInput");
   if (analyticsFlag?.config?.retention_days && retentionInput) {
     retentionInput.value = analyticsFlag.config.retention_days;
+  }
+}
+
+async function loadRoutingMetrics() {
+  const metrics = await callRpc("admin_get_route_geometry_metrics", {
+    period_hours: 24,
+  });
+  const requests = Number(metrics.requests || 0);
+  const errors = Number(metrics.errors || 0);
+  const errorRate = requests ? `${((errors / requests) * 100).toFixed(1)}%` : "0%";
+  const values = [
+    ["Requests", requests],
+    ["Error rate", errorRate],
+    ["P50 latency", `${metrics.p50_latency_ms || 0} ms`],
+    ["P95 latency", `${metrics.p95_latency_ms || 0} ms`],
+  ];
+  const grid = document.querySelector("#routingMetricGrid");
+  grid.replaceChildren();
+  values.forEach(([label, value]) => {
+    const card = makeElement("article", "mini-metric");
+    card.append(makeElement("small", "", label), makeElement("strong", "", value));
+    grid.append(card);
+  });
+  const status = document.querySelector("#routingProviderStatus");
+  status.textContent = metrics.enabled ? "Provider enabled" : "Provider disabled";
+  status.classList.toggle("pill-negative", !metrics.enabled);
+  const breakdown = document.querySelector("#routingCodeBreakdown");
+  breakdown.replaceChildren();
+  (metrics.codes || []).forEach((entry) => {
+    breakdown.append(makeElement("code", "", `${entry.code}: ${entry.count}`));
+  });
+  if (!(metrics.codes || []).length) {
+    breakdown.append(makeElement("span", "table-secondary", "No route requests recorded yet."));
   }
 }
 
@@ -525,6 +559,30 @@ function buildStructuredConfigFields(flag, container) {
         max: 12,
       },
     ],
+    route_geometry: [
+      {
+        key: "daily_limit",
+        label: "Per-user daily request limit",
+        type: "integer",
+        min: 1,
+        max: 1000,
+      },
+      {
+        key: "global_daily_limit",
+        label: "Global daily infrastructure budget",
+        type: "integer",
+        min: 10,
+        max: 1000000,
+      },
+      {
+        key: "timeout_ms",
+        label: "Provider timeout (ms)",
+        type: "integer",
+        min: 2000,
+        max: 30000,
+        step: 500,
+      },
+    ],
     user_activity_tracking: [
       { key: "retention_days", label: "Retention days", type: "integer", min: 30, max: 365 },
     ],
@@ -606,6 +664,15 @@ function buildStructuredConfigFields(flag, container) {
         }
       });
     });
+  }
+  if (flag.key === "route_geometry") {
+    container.append(
+      makeElement(
+        "p",
+        "ai-config-note",
+        "Emergency kill switch: turn this flag off and press Save to stop new route-provider calls immediately. Lists remain usable without map geometry.",
+      ),
+    );
   }
   return inputs;
 }

@@ -12,11 +12,11 @@
   const tourRoot = document.getElementById('tour');
 
   const strings = {
-    tr: { loading: 'Paylaşılan tur yükleniyor…', unavailable: 'Bu bağlantı kullanılamıyor', unavailableCopy: 'Süresi dolmuş veya tur sahibi tarafından iptal edilmiş olabilir.', days: 'gün', readOnly: 'Salt okunur', demo: 'Örnek tur', itinerary: 'TUR PLANI', plan: 'Tur planın', dayPlan: 'AI GÜNLÜK PLAN', dailyPrivacy: 'Özel notlar, kişisel ilerleme, alternatif mekânlar ve canlı konum paylaşılmaz.', expand: 'Tümünü aç', collapse: 'Tümünü kapat', direction: 'Yol tarifi', overnight: 'Bu günün sonunda geceleme planlanıyor', meals: 'YEMEK DURAKLARI', getApp: 'Uygulamayı indir', downloadApp: 'NomadX’i indir', sample: 'Örnek turu görüntüle' },
-    en: { loading: 'Loading shared tour…', unavailable: 'This link is unavailable', unavailableCopy: 'It may have expired or been revoked by its owner.', days: 'days', readOnly: 'Read only', demo: 'Sample tour', itinerary: 'ITINERARY', plan: 'Your tour plan', dayPlan: 'AI DAY PLAN', dailyPrivacy: 'Private notes, personal progress, alternative places and live location are not shared.', expand: 'Expand all', collapse: 'Collapse all', direction: 'Directions', overnight: 'An overnight stay is planned after this day', meals: 'MEAL STOPS', getApp: 'Get the app', downloadApp: 'Download NomadX', sample: 'View sample tour' },
-    de: { loading: 'Geteilte Tour wird geladen…', unavailable: 'Dieser Link ist nicht verfügbar', unavailableCopy: 'Er ist möglicherweise abgelaufen oder wurde widerrufen.', days: 'Tage', readOnly: 'Nur lesen', demo: 'Beispieltour', itinerary: 'REISEPLAN', plan: 'Dein Reiseplan', dayPlan: 'AI-TAGESPLAN', dailyPrivacy: 'Private Notizen, Fortschritt, Alternativen und Live-Standort werden nicht geteilt.', expand: 'Alle öffnen', collapse: 'Alle schließen', direction: 'Route', overnight: 'Nach diesem Tag ist eine Übernachtung geplant', meals: 'ESSENSSTOPPS', getApp: 'App laden', downloadApp: 'NomadX laden', sample: 'Beispieltour ansehen' },
-    es: { loading: 'Cargando el tour compartido…', unavailable: 'Este enlace no está disponible', unavailableCopy: 'Puede haber caducado o haber sido revocado.', days: 'días', readOnly: 'Solo lectura', demo: 'Tour de ejemplo', itinerary: 'ITINERARIO', plan: 'Tu plan de viaje', dayPlan: 'PLAN DIARIO IA', dailyPrivacy: 'No se comparten notas privadas, progreso, alternativas ni ubicación en vivo.', expand: 'Abrir todo', collapse: 'Cerrar todo', direction: 'Cómo llegar', overnight: 'Hay una estancia nocturna prevista tras este día', meals: 'PARADAS PARA COMER', getApp: 'Descargar app', downloadApp: 'Descargar NomadX', sample: 'Ver tour de ejemplo' },
-    fr: { loading: 'Chargement du circuit partagé…', unavailable: 'Ce lien est indisponible', unavailableCopy: 'Il a peut-être expiré ou été révoqué.', days: 'jours', readOnly: 'Lecture seule', demo: 'Circuit exemple', itinerary: 'ITINÉRAIRE', plan: 'Votre circuit', dayPlan: 'PROGRAMME IA', dailyPrivacy: 'Les notes privées, la progression, les alternatives et la position en direct ne sont pas partagées.', expand: 'Tout ouvrir', collapse: 'Tout fermer', direction: 'Itinéraire', overnight: 'Une nuitée est prévue après cette journée', meals: 'PAUSES REPAS', getApp: 'Télécharger', downloadApp: 'Télécharger NomadX', sample: 'Voir un exemple' },
+    tr: { loading: 'Paylaşılan tur yükleniyor…', unavailable: 'Bu bağlantı kullanılamıyor', unavailableCopy: 'Süresi dolmuş veya tur sahibi tarafından iptal edilmiş olabilir.', days: 'gün', readOnly: 'Salt okunur', demo: 'Örnek tur', itinerary: 'TUR PLANI', plan: 'Tur planın', dayPlan: 'AI GÜNLÜK PLAN', dailyPrivacy: 'Özel notlar, kişisel ilerleme, alternatif mekânlar ve canlı konum paylaşılmaz.', expand: 'Tümünü aç', collapse: 'Tümünü kapat', direction: 'Yol tarifi', overnight: 'Bu günün sonunda geceleme planlanıyor', meals: 'YEMEK DURAKLARI', getApp: 'Uygulamayı indir', downloadApp: 'NomadX’i indir', sample: 'Örnek turu görüntüle', joinTitle: 'NomadX’te devam et', joinCopy: 'Herkese açık bağlantılar daima salt okunurdur. Katılmak için giriş yapmalı, tur sahibinden davet almalı ve daveti açıkça kabul etmelisin.', openApp: 'NomadX’te aç' },
+    en: { loading: 'Loading shared tour…', unavailable: 'This link is unavailable', unavailableCopy: 'It may have expired or been revoked by its owner.', days: 'days', readOnly: 'Read only', demo: 'Sample tour', itinerary: 'ITINERARY', plan: 'Your tour plan', dayPlan: 'AI DAY PLAN', dailyPrivacy: 'Private notes, personal progress, alternative places and live location are not shared.', expand: 'Expand all', collapse: 'Collapse all', direction: 'Directions', overnight: 'An overnight stay is planned after this day', meals: 'MEAL STOPS', getApp: 'Get the app', downloadApp: 'Download NomadX', sample: 'View sample tour', joinTitle: 'Continue in NomadX', joinCopy: 'Public links are always read only. Joining requires sign-in, an invitation from the owner and your explicit acceptance.', openApp: 'Open in NomadX' },
+    de: { loading: 'Geteilte Tour wird geladen…', unavailable: 'Dieser Link ist nicht verfügbar', unavailableCopy: 'Er ist möglicherweise abgelaufen oder wurde widerrufen.', days: 'Tage', readOnly: 'Nur lesen', demo: 'Beispieltour', itinerary: 'REISEPLAN', plan: 'Dein Reiseplan', dayPlan: 'AI-TAGESPLAN', dailyPrivacy: 'Private Notizen, Fortschritt, Alternativen und Live-Standort werden nicht geteilt.', expand: 'Alle öffnen', collapse: 'Alle schließen', direction: 'Route', overnight: 'Nach diesem Tag ist eine Übernachtung geplant', meals: 'ESSENSSTOPPS', getApp: 'App laden', downloadApp: 'NomadX laden', sample: 'Beispieltour ansehen', joinTitle: 'In NomadX fortfahren', joinCopy: 'Öffentliche Links sind immer schreibgeschützt. Zum Beitreten sind Anmeldung, eine Einladung des Eigentümers und deine ausdrückliche Annahme erforderlich.', openApp: 'In NomadX öffnen' },
+    es: { loading: 'Cargando el tour compartido…', unavailable: 'Este enlace no está disponible', unavailableCopy: 'Puede haber caducado o haber sido revocado.', days: 'días', readOnly: 'Solo lectura', demo: 'Tour de ejemplo', itinerary: 'ITINERARIO', plan: 'Tu plan de viaje', dayPlan: 'PLAN DIARIO IA', dailyPrivacy: 'No se comparten notas privadas, progreso, alternativas ni ubicación en vivo.', expand: 'Abrir todo', collapse: 'Cerrar todo', direction: 'Cómo llegar', overnight: 'Hay una estancia nocturna prevista tras este día', meals: 'PARADAS PARA COMER', getApp: 'Descargar app', downloadApp: 'Descargar NomadX', sample: 'Ver tour de ejemplo', joinTitle: 'Continuar en NomadX', joinCopy: 'Los enlaces públicos son siempre de solo lectura. Para unirte debes iniciar sesión, recibir una invitación del propietario y aceptarla expresamente.', openApp: 'Abrir en NomadX' },
+    fr: { loading: 'Chargement du circuit partagé…', unavailable: 'Ce lien est indisponible', unavailableCopy: 'Il a peut-être expiré ou été révoqué.', days: 'jours', readOnly: 'Lecture seule', demo: 'Circuit exemple', itinerary: 'ITINÉRAIRE', plan: 'Votre circuit', dayPlan: 'PROGRAMME IA', dailyPrivacy: 'Les notes privées, la progression, les alternatives et la position en direct ne sont pas partagées.', expand: 'Tout ouvrir', collapse: 'Tout fermer', direction: 'Itinéraire', overnight: 'Une nuitée est prévue après cette journée', meals: 'PAUSES REPAS', getApp: 'Télécharger', downloadApp: 'Télécharger NomadX', sample: 'Voir un exemple', joinTitle: 'Continuer dans NomadX', joinCopy: 'Les liens publics restent en lecture seule. Pour participer, vous devez vous connecter, recevoir une invitation du propriétaire et l’accepter explicitement.', openApp: 'Ouvrir dans NomadX' },
   };
   let locale = (navigator.language || 'en').slice(0, 2);
   if (!strings[locale]) locale = 'en';
@@ -199,11 +199,17 @@
     text('transport', Array.isArray(tour.transport_modes) ? tour.transport_modes.join(' · ') : '');
     document.querySelector('.section-kicker').textContent = t.itinerary;
     document.querySelector('.section-heading h2').textContent = t.plan;
+    text('join-title', t.joinTitle);
+    text('join-copy', t.joinCopy);
     const expandButton = document.getElementById('expand-all');
     expandButton.textContent = t.expand;
     document.querySelectorAll('[data-open-app]').forEach((link) => {
       link.href = demo ? APP_STORE : appUrl();
-      if (demo) link.textContent = link.classList.contains('compact') ? t.getApp : t.downloadApp;
+      if (demo) {
+        link.textContent = link.classList.contains('compact') ? t.getApp : t.downloadApp;
+      } else {
+        link.textContent = t.openApp;
+      }
     });
 
     const daysRoot = document.getElementById('days');
@@ -289,7 +295,10 @@
   }
 
   const endpoint = dailyToken ? DAILY_API : API;
-  fetch(`${endpoint}?token=${encodeURIComponent(activeToken)}`, { headers: { Accept: 'application/json' } })
+  fetch(`${endpoint}?token=${encodeURIComponent(activeToken)}`, {
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+  })
     .then((response) => response.ok ? response.json() : Promise.reject(new Error('not_found')))
     .then((data) => render(dailyToken ? dailyDataToTour(data) : data))
     .catch(showError);
