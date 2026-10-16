@@ -65,6 +65,34 @@ export function notificationCampaignOperation(input, previous, createId = () => 
   return previous || {fingerprint, id: createId()};
 }
 
+// Copy content and audience, never identity/revision/schedule/delivery state.
+// Publishing the resulting form still requires a fresh audience preview and confirmation.
+export function notificationCampaignCopy(item) {
+  const mode = item.audience_mode || 'selected';
+  if (!['selected', 'all', 'countries'].includes(mode)) throw new Error('Bu hedef kitle kopyalanamıyor.');
+  const data = new Map([['audience_mode', mode], ['scheduled_at', ''],
+    ['recipients', mode === 'selected' ? (item.recipient_ids || []).join('\n') : ''],
+    ['country_codes', mode === 'countries' ? (item.audience_country_codes || []).join(',') : '']]);
+  for (const language of notificationLanguages) {
+    data.set(`title_${language}`, item.titles?.[language] || '');
+    data.set(`body_${language}`, item.bodies?.[language] || '');
+  }
+  notificationCampaignInput(data, {draft: true});
+  return data;
+}
+
+export function notificationCampaignStatus(item) {
+  if (item.state === 'draft') return {label: 'Taslak', tone: 'neutral'};
+  if (item.state === 'scheduled') return {label: 'Zamanlandı', tone: 'scheduled'};
+  if (item.state === 'cancelled') return {label: 'İptal edildi', tone: 'neutral'};
+  const counts = item.delivery_summary || {};
+  if (['pending', 'leased', 'retry'].some(key => counts[key] > 0)) return {label: 'Gönderiliyor', tone: 'scheduled'};
+  const errors = (counts.failed || 0) + (counts.invalid_token || 0);
+  if (counts.accepted > 0) return {label: errors ? 'Kısmen kabul edildi' : 'FCM kabul etti', tone: errors ? 'warning' : 'accepted'};
+  if (errors) return {label: 'Gönderim başarısız', tone: 'warning'};
+  return {label: 'İşlendi', tone: 'neutral'};
+}
+
 export function mountNotifications(root, rpc, notify, adminUserId) {
   const el = (tag, text) => {
     const node = document.createElement(tag);
@@ -88,7 +116,7 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
       let finished = false;
       const finish = accepted => {
         if (finished) return;
-        finished = true; dialog.close(); dialog.remove(); heading.focus(); resolve(accepted);
+        finished = true; dialog.close(); dialog.remove(); pageTabs.get(activeView).focus(); resolve(accepted);
       };
       const confirm = button(label, () => finish(true));
       confirm.className = label === 'Confirm cancellation' ? 'button button-danger' : 'button button-primary';
@@ -107,7 +135,35 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
   const labels = new Map();
   root.replaceChildren();
   root.append(el('h2', 'Push notifications'));
-  root.append(el('p', 'Owner only · These campaigns are separate from the in-app Announcements banner. Scheduling does not confirm delivery; the server worker, scheduler and push flag must be enabled separately.'));
+  root.append(el('p', 'Bildirimini hazırla, zamanla ve geçmişten takip et. Bu alan yalnız owner hesabına açıktır; uygulama içi duyuru banner’ından ayrıdır.'));
+  const pageTablist = el('div'); pageTablist.className = 'notification-page-tabs';
+  pageTablist.setAttribute('role', 'tablist'); pageTablist.setAttribute('aria-label', 'Bildirim yönetimi');
+  const pageTabs = new Map(), pagePanels = new Map();
+  let activeView = 'compose';
+  for (const [key, title] of [['compose', 'Yeni bildirim'], ['history', 'Gönderim geçmişi']]) {
+    const tab = button(title, () => selectView(key));
+    tab.id = `notification-view-tab-${key}`; tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-controls', `notification-view-${key}`);
+    const panel = el('section'); panel.id = `notification-view-${key}`;
+    panel.className = 'notification-page-panel'; panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', tab.id);
+    pageTabs.set(key, tab); pagePanels.set(key, panel); pageTablist.append(tab);
+    tab.onkeydown = event => {
+      if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const next = event.key === 'Home' ? 'compose' : event.key === 'End' ? 'history' : key === 'compose' ? 'history' : 'compose';
+      selectView(next); pageTabs.get(next).focus();
+    };
+  }
+  function selectView(key) {
+    activeView = key;
+    for (const [name, panel] of pagePanels) {
+      panel.hidden = name !== key; pageTabs.get(name).setAttribute('aria-selected', String(name === key));
+      pageTabs.get(name).tabIndex = name === key ? 0 : -1;
+    }
+  }
+  root.append(pageTablist, ...pagePanels.values()); selectView('compose');
+  const composePanel = pagePanels.get('compose'), historyPanel = pagePanels.get('history');
   const settings = el('section'); settings.className = 'panel panel-card notification-delivery-settings';
   const settingsStatus = el('p', 'Gönderim ayarları yükleniyor…'); settingsStatus.setAttribute('aria-live', 'polite');
   const limitEnabled = el('input'); limitEnabled.type = 'checkbox'; limitEnabled.disabled = true;
@@ -147,7 +203,8 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
     field('Kişi başına günlük sınır uygula', limitEnabled), field('Günlük bildirim sayısı', limitValue),
     el('small', 'Kapalıysa günlük sayı sınırı yoktur. Açıksa kullanıcının yerel gününe göre hesaplanır; cihaz sayısı ve tekrar denemeler aynı bildirimi iki kez saymaz. İzin ve sessiz saat kontrolleri her durumda korunur.'),
     settingsSave, settingsReload, settingsError);
-  root.append(settings);
+  const settingsDetails = el('details'); settingsDetails.className = 'notification-settings-details';
+  settingsDetails.append(el('summary', 'Gönderim ayarları · Günlük sınır'), settings);
   const heading = el('h3', 'New campaign');
   heading.tabIndex = -1;
   const form = el('form'); form.className = 'panel panel-card notification-campaign-form';
@@ -405,8 +462,24 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
     reset();
   }, true);
   form.append(el('p', 'Toplu hedef kitle zamanlama anında sabitlenir. İzinler gönderimde tekrar kontrol edilir. Yeni gönderim yalnız son onayından sonra zamanlanır.'), draftButton, submit, newButton, error);
-  const history = el('div'); history.setAttribute('aria-live', 'polite');
-  const reload = button('Refresh history', () => refresh());
+  const history = el('div'); history.className = 'notification-history-grid'; history.setAttribute('aria-live', 'polite');
+  const reload = button('Geçmişi yenile', () => refresh());
+  const historyHeading = el('h3', 'Gönderim geçmişi');
+  const historyIntro = el('p', 'Son 100 bildirim kampanyası. Yeniden gönder seçeneği yeni bir form açar; eski kayıt değişmez ve onayın olmadan gönderim yapılmaz.');
+  const historyStats = el('div'); historyStats.className = 'notification-history-stats';
+  const historyTools = el('div'); historyTools.className = 'notification-history-tools';
+  const historySearch = el('input'); historySearch.type = 'search'; historySearch.placeholder = 'Başlık veya mesajda ara';
+  const historyFilter = el('select');
+  for (const [value, title] of [['all', 'Tüm durumlar'], ['queued', 'İşlenen bildirimler'], ['scheduled', 'Zamanlanmış'], ['draft', 'Taslaklar'], ['cancelled', 'İptal edilenler']]) {
+    const option = el('option', title); option.value = value; historyFilter.append(option);
+  }
+  const historyLanguage = el('select');
+  for (const language of notificationLanguages) { const option = el('option', notificationLanguageNames[language]); option.value = language; historyLanguage.append(option); }
+  historyTools.append(field('Bildirim ara', historySearch), field('Durum', historyFilter), field('İçerik dili', historyLanguage), reload);
+  let historyRows = [], historyFailure = '', historyLoading = false;
+  historySearch.oninput = historyFilter.onchange = historyLanguage.onchange = () => renderHistory();
+  historyPanel.append(historyHeading, historyIntro, historyStats, historyTools,
+    el('p', '“FCM kabul etti”, gönderim servisinin isteği kabul ettiğini gösterir; telefonda görüntülendiği veya okunduğu anlamına gelmez.'), history);
   function setBusy(value) {
     busy = value;
     root.querySelectorAll('button[data-mutates-campaign]').forEach(node => { node.disabled = value; });
@@ -423,8 +496,9 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
     setBusy(busy);
   }
   async function edit(item) {
-    if (busy || (dirty && !await confirmAction('Discard unsaved form changes and open this campaign?', 'Discard changes'))) return;
+    if (busy || ((dirty || lastAttempt) && !await confirmAction('Mevcut form değişiklikleri bırakılsın mı? Son kaydın sonucu belirsizse önce geçmişten kontrol et.', 'Değişiklikleri bırak'))) return;
     reset(); editing = {id: item.id, revision: item.revision, state: item.state};
+    selectView('compose');
     heading.textContent = `Editing ${item.state} · revision ${item.revision}`;
     for (const lang of notificationLanguages) {
       form.elements[`title_${lang}`].value = item.titles[lang] || '';
@@ -440,49 +514,94 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
     }
     showRecipients(); showAudienceMode(); void refreshAudience(); updateLanguageStatus(); showPreview(); heading.scrollIntoView({block: 'nearest'});
   }
+  async function copyCampaign(item) {
+    if (busy || ((dirty || lastAttempt) && !await confirmAction('Mevcut form değişiklikleri bırakılsın mı? Belirsiz bir kayıt varsa önce geçmişten kontrol et.', 'Değişiklikleri bırak'))) return;
+    try {
+      const data = notificationCampaignCopy(item);
+      reset();
+      for (const language of notificationLanguages) {
+        form.elements[`title_${language}`].value = data.get(`title_${language}`);
+        form.elements[`body_${language}`].value = data.get(`body_${language}`);
+      }
+      modes.get(data.get('audience_mode')).checked = true;
+      recipients.value = data.get('recipients'); countriesValue.value = data.get('country_codes');
+      date.value = ''; dirty = true;
+      heading.textContent = 'Yeniden gönder · Yeni bildirim';
+      showRecipients(); showAudienceMode(); void refreshAudience(); updateLanguageStatus(); showPreview();
+      selectView('compose'); heading.focus(); heading.scrollIntoView({block: 'nearest'});
+      notify('İçerik ve hedef kitle kopyalandı. Zaman seçip kontrol et; henüz gönderilmedi. Ülke/tüm kullanıcı hedefleri güncel izinlere göre yeniden hesaplanır.');
+    } catch (failure) { notify(`Kopyalanamadı: ${failure.message}`, true); }
+  }
+  function renderHistory() {
+    history.replaceChildren(); historyStats.replaceChildren();
+    if (historyLoading) { history.textContent = 'Geçmiş yükleniyor…'; return; }
+    if (historyFailure) { history.textContent = historyFailure; return; }
+    const metrics = [['Kampanya', historyRows.length], ['FCM kabulü · cihaz işi', historyRows.reduce((n, item) => n + (item.delivery_summary?.accepted || 0), 0)],
+      ['Zamanlanmış', historyRows.filter(item => item.state === 'scheduled').length]];
+    for (const [title, count] of metrics) { const card = el('div'); card.append(el('strong', String(count)), el('span', title)); historyStats.append(card); }
+    const query = historySearch.value.trim().toLocaleLowerCase('tr');
+    const filtered = historyRows.filter(item => (historyFilter.value === 'all' || item.state === historyFilter.value) &&
+      (!query || [...Object.values(item.titles || {}), ...Object.values(item.bodies || {})].join(' ').toLocaleLowerCase('tr').includes(query)));
+    if (!filtered.length) history.append(el('p', historyRows.length ? 'Aramana uygun bildirim bulunamadı. Filtreleri değiştirebilirsin.' : 'Henüz bildirim yok. İlk bildirimini Yeni bildirim sekmesinden hazırlayabilirsin.'));
+    for (const item of filtered) {
+      const row = el('article'); row.className = 'panel panel-card notification-history-card';
+      const status = notificationCampaignStatus(item), badge = el('span', status.label);
+      badge.className = 'notification-status'; badge.dataset.tone = status.tone;
+      const language = historyLanguage.value;
+      const rowHeader = el('div'); rowHeader.className = 'notification-history-card-header';
+      rowHeader.append(el('small', notificationLanguageNames[language]), badge);
+      const title = item.titles?.[language], body = item.bodies?.[language];
+      const message = el('p', body || 'Bu dilde mesaj eklenmemiş.'); message.className = 'notification-history-message';
+      row.append(rowHeader, el('h4', title || 'Bu dilde başlık yok'), message);
+      const meta = el('dl'); meta.className = 'notification-history-meta';
+      const time = item.scheduled_at ? new Date(item.scheduled_at).toLocaleString('tr-TR', {dateStyle: 'medium', timeStyle: 'short'}) : 'Zaman seçilmemiş';
+      for (const [label, value] of [['Planlanan zaman', `${time}${item.scheduled_at ? ` · ${zone}` : ''}`],
+        ['Hedef kitle', audienceLabel({p_mode: item.audience_mode || 'selected', p_country_codes: item.audience_country_codes || [], p_recipient_ids: item.recipient_ids || []})],
+        ['Hedef kullanıcı', String(item.recipient_count ?? 'Bilinmiyor')]]) { meta.append(el('dt', label), el('dd', value)); }
+      row.append(meta);
+      const delivery = el('div'); delivery.className = 'notification-history-delivery';
+      const deliveryNames = {accepted: 'FCM kabul etti', pending: 'Sırada', leased: 'İşleniyor', retry: 'Tekrar denenecek', failed: 'Başarısız', invalid_token: 'Geçersiz cihaz', cancelled: 'İptal', skipped: 'Atlandı'};
+      for (const [name, count] of Object.entries(item.delivery_summary || {})) if (count > 0) delivery.append(el('span', `${deliveryNames[name] || name}: ${count}`));
+      if (!delivery.childElementCount) delivery.append(el('span', 'Henüz push cihaz işi yok. Uygulama içi alıcılar ayrı işlenir.'));
+      const actions = el('div'); actions.className = 'notification-history-actions';
+      const resend = button('Yeniden gönder', () => copyCampaign(item), true); resend.className = 'button button-primary';
+      actions.append(resend);
+      if (item.can_edit === true && Number.isInteger(item.revision)) actions.append(button('Düzenle', () => edit(item), true));
+      const counts = item.delivery_summary || {};
+      if (item.state !== 'cancelled' && Number.isInteger(item.revision) &&
+          (item.state === 'scheduled' || ['pending', 'leased', 'retry'].some(key => counts[key] > 0))) {
+        actions.append(button('Bekleyen gönderimi iptal et', async () => {
+          if (busy || !await confirmAction('Yalnız bekleyen gönderimler iptal edilsin mi? Kabul edilen bildirimler geri alınamaz.', 'Confirm cancellation')) return;
+          setBusy(true);
+          try {
+            await rpc('admin_cancel_notification_campaign_revision', {p_id: item.id, p_expected_revision: item.revision});
+            if (editing?.id === item.id) reset();
+            await refresh(); notify('Bekleyen gönderimler iptal edildi.');
+          } catch (failure) { notify(`İptal edilemedi: ${failure.message}. Geçmişi yenile.`, true); }
+          finally { setBusy(false); }
+        }, true));
+      }
+      const technical = el('details'); technical.append(el('summary', 'Teknik ayrıntılar'), el('p', `Kampanya: ${item.id} · Sürüm: ${item.revision ?? 'Bilinmiyor'}`));
+      row.append(delivery, actions, technical); history.append(row);
+    }
+    setBusy(busy);
+  }
   async function refresh() {
     const sequence = ++refreshSequence;
-    history.textContent = 'Loading…';
+    historyFailure = ''; historyLoading = true; renderHistory(); reload.disabled = true;
     try {
       const rows = await rpc('admin_list_notification_campaigns');
       if (sequence !== refreshSequence) return;
-      history.replaceChildren();
+      historyRows = rows; historyLoading = false;
       const current = editing && rows.find(item => item.id === editing.id);
       if (current && current.can_edit !== true) {
         readOnly = true; editing.state = current.state;
         heading.textContent = `Read-only: ${current.state}. Create a new campaign to change content.`;
       }
-      if (!rows.length) history.append(el('p', 'No campaigns.'));
-      for (const item of rows) {
-        const row = el('article'); row.className = 'panel panel-card';
-        row.append(el('h3', item.titles.tr || item.titles.en || 'Untitled draft'), el('p',
-          `${item.state} · revision ${item.revision ?? 'unavailable'} · ${item.scheduled_at ? new Date(item.scheduled_at).toLocaleString() : 'Not scheduled'} · ${item.recipient_count} hedef kullanıcı`));
-        row.append(el('p', `Hedef: ${audienceLabel({p_mode: item.audience_mode || 'selected', p_country_codes: item.audience_country_codes || [], p_recipient_ids: item.recipient_ids || []})}`));
-        row.append(el('p', Object.entries(item.delivery_summary ?? {})
-          .map(([name, count]) => `${name}: ${count}`).join(' · ') || 'No delivery jobs yet.'));
-        row.append(el('small', 'Accepted means FCM accepted, not delivered or read. Queued content is immutable; cancelling stops pending delivery only.'));
-        if (item.can_edit === true && Number.isInteger(item.revision)) {
-          row.append(button('Edit campaign', () => edit(item), true));
-        }
-        if (item.state !== 'cancelled' && Number.isInteger(item.revision)) {
-          row.append(button('Cancel pending delivery', async () => {
-            if (busy || !await confirmAction('Cancel this campaign? Already accepted messages cannot be recalled.', 'Confirm cancellation')) return;
-            setBusy(true);
-            try {
-              await rpc('admin_cancel_notification_campaign_revision', {
-                p_id: item.id, p_expected_revision: item.revision});
-              if (editing?.id === item.id) reset();
-              await refresh(); notify('Cancelled pending delivery only.');
-            } catch (failure) { notify(`Cancellation failed: ${failure.message}. Refresh history before retrying.`, true); }
-            finally { setBusy(false); }
-          }, true));
-        }
-        history.append(row);
-      }
-      setBusy(busy);
+      renderHistory();
     } catch (failure) {
-      if (sequence === refreshSequence) history.textContent = `Unavailable: ${failure.message}. Your form has been kept. Refresh to retry.`;
-    }
+      if (sequence === refreshSequence) { historyLoading = false; historyRows = []; historyFailure = `Geçmiş okunamadı: ${failure.message}. Bu bir boş liste sonucu değildir. Formun korundu; yeniden dene.`; renderHistory(); }
+    } finally { if (sequence === refreshSequence) reload.disabled = false; }
   }
   async function save(draft) {
     if (busy) return;
@@ -515,6 +634,7 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
       heading.textContent = `Editing ${result.state} · revision ${result.revision}`;
       notify(draft ? 'Draft saved; nothing scheduled or sent.' : 'Scheduled; not a delivery confirmation.');
       await refresh();
+      if (!draft) selectView('history');
     } catch (failure) {
       const rejected = ['40001', '22023', '42501', 'P0002'].includes(failure.code);
       if (rejected) lastAttempt = null;
@@ -525,7 +645,7 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
   }
   form.addEventListener('input', () => { dirty = true; updateLanguageStatus(); showPreview(); });
   form.onsubmit = event => { event.preventDefault(); return save(false); };
-  root.append(form, el('p', 'Zamanlanmış kampanyalar, düzenleme sırasında mevcut saatinde işlenebilir. Gönderimi durdurmak için geçmişten “Cancel pending delivery” seçeneğini kullan.'), reload, history);
+  composePanel.append(form, settingsDetails, el('p', 'Zamanlanmış bildirimler düzenleme sırasında işlenebilir. Gönderimi durdurmak için geçmişten “Bekleyen gönderimi iptal et” seçeneğini kullan.'));
   showRecipients(); showAudienceMode(); void refreshAudience(); void loadCountries(); void loadSettings(); updateLanguageStatus(); selectLanguage('tr');
   return refresh();
 }

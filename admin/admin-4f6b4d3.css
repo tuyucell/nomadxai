@@ -83,11 +83,48 @@ body {
 #section-notifications .notification-delivery-settings { display: grid; gap: 12px; padding: 20px; }
 #section-notifications .notification-delivery-settings small { color: var(--muted); line-height: 1.6; }
 #section-notifications .notification-delivery-settings input[type="checkbox"] { width: 20px; height: 20px; min-height: 20px; padding: 0; accent-color: var(--primary); }
+#section-notifications .notification-page-tabs { display: flex; gap: 8px; padding: 6px; margin: 24px 0; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+#section-notifications .notification-page-tabs button { flex: 1; min-height: 48px; white-space: normal; }
+#section-notifications .notification-page-tabs button[aria-selected="true"] { background: var(--primary); color: white; border-color: #a89dff; }
+#section-notifications .notification-page-tabs button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+#section-notifications .notification-page-panel { min-width: 0; }
+#section-notifications .notification-settings-details { margin-top: 24px; border: 1px solid var(--line); border-radius: 16px; }
+#section-notifications .notification-settings-details > summary { padding: 18px; cursor: pointer; font-weight: 600; }
+#section-notifications .notification-history-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 24px 0; }
+#section-notifications .notification-history-stats > div { display: grid; gap: 8px; background: var(--surface); padding: 18px; border: 1px solid var(--line); border-radius: 14px; }
+#section-notifications .notification-history-stats strong { font-size: 28px; }
+#section-notifications .notification-history-stats span { color: var(--muted); font-size: 13px; }
+#section-notifications .notification-history-tools { display: grid; grid-template-columns: minmax(0,2fr) repeat(2,minmax(0,1fr)) auto; align-items: end; gap: 12px; }
+#section-notifications .notification-history-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin-top: 24px; }
+#section-notifications .notification-history-card { margin: 0; padding: 22px; min-width: 0; overflow-wrap: anywhere; display: flex; flex-direction: column; gap: 16px; }
+#section-notifications .notification-history-card h4 { margin: 0; font-size: 19px; line-height: 1.5; }
+#section-notifications .notification-history-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#section-notifications .notification-status { border: 1px solid var(--line); border-radius: 99px; padding: 6px 10px; color: var(--muted); font-size: 12px; }
+#section-notifications .notification-status[data-tone="accepted"] { color: var(--green); background: #36d39912; border-color: #36d39940; }
+#section-notifications .notification-status[data-tone="scheduled"] { color: var(--cyan); background: #17bdd212; border-color: #17bdd240; }
+#section-notifications .notification-status[data-tone="warning"] { color: var(--amber); background: #f5b83d12; border-color: #f5b83d40; }
+#section-notifications .notification-history-message { white-space: pre-wrap; line-height: 1.75; margin: 0; padding: 16px; border-radius: 12px; background: var(--bg); }
+#section-notifications .notification-history-meta { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 10px 16px; margin: 0; font-size: 13px; line-height: 1.6; }
+#section-notifications .notification-history-meta dt { color: var(--muted); }
+#section-notifications .notification-history-meta dd { margin: 0; }
+#section-notifications .notification-history-delivery, #section-notifications .notification-history-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+#section-notifications .notification-history-delivery span { color: var(--muted); background: var(--surface-2); border-radius: 8px; padding: 6px 10px; font-size: 12px; }
+#section-notifications .notification-history-actions { margin-top: auto; }
+#section-notifications .notification-history-actions button { min-height: 44px; white-space: normal; }
+#section-notifications .notification-history-card details { color: var(--muted); font-size: 12px; }
 @media (max-width: 760px) {
   #section-notifications .notification-content-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   #section-notifications .notification-content { padding: 14px; }
   #section-notifications .notification-audience-modes, #section-notifications .notification-country-list { grid-template-columns: minmax(0, 1fr); }
   #section-notifications .notification-audience-section { padding: 14px; }
+  #section-notifications .notification-history-grid { grid-template-columns: minmax(0,1fr); }
+  #section-notifications .notification-history-tools { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  #section-notifications .notification-history-tools label:first-child { grid-column: 1 / -1; }
+  #section-notifications .notification-history-stats { gap: 8px; }
+  #section-notifications .notification-history-stats > div { padding: 12px; }
+  #section-notifications .notification-history-stats strong { font-size: 24px; }
+  #section-notifications .notification-history-meta { grid-template-columns: minmax(0,1fr); gap: 4px; }
+  #section-notifications .notification-history-meta dd { margin-bottom: 8px; }
 }
 
 button,

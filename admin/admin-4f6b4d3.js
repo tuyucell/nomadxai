@@ -1,6 +1,6 @@
 // Versioned entry point prevents stale CDN assets after admin releases.
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-import { mountNotifications } from './notifications.js?v=20261016delivery2';
+import { mountNotifications } from './notifications.js?v=20261016history1';
 
 const SUPABASE_URL = "https://mewpnmaoihjksorvayjh.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_C2aTJ8BwNZFNyYcLUehGew_eRqDwTAe";
