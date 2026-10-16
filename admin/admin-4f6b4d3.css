@@ -65,9 +65,26 @@ body {
 #section-notifications .notification-preview-card > p, #section-notifications .notification-preview-card small { color: var(--muted); font-size: 12px; line-height: 1.6; }
 #section-notifications .notification-preview { margin: 14px 0; min-height: 110px; background: var(--bg); }
 #section-notifications .notification-preview p { margin-bottom: 0; }
+#section-notifications .notification-audience-section { min-width: 0; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+#section-notifications .notification-audience-section > p, #section-notifications .notification-audience-section small { color: var(--muted); font-size: 13px; line-height: 1.65; }
+#section-notifications .notification-audience-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 0; border: 0; margin: 20px 0; }
+#section-notifications .notification-audience-modes legend { margin-bottom: 10px; font-size: 13px; color: var(--muted); }
+#section-notifications .notification-audience-mode { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); cursor: pointer; }
+#section-notifications .notification-audience-mode:has(input:checked) { border-color: var(--primary); background: #6d5dfc18; box-shadow: inset 0 0 0 1px var(--primary); }
+#section-notifications .notification-audience-mode input, #section-notifications .notification-country-list input, #section-notifications .notification-confirm input[type="checkbox"] { width: 18px; height: 18px; min-height: 18px; padding: 0; flex: 0 0 18px; margin: 2px 0; accent-color: var(--primary); box-shadow: none; }
+#section-notifications .notification-audience-mode input:focus-visible, #section-notifications .notification-country-list input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+#section-notifications .notification-audience-mode strong, #section-notifications .notification-audience-mode small { display: block; }
+#section-notifications .notification-audience-mode strong { margin-bottom: 5px; }
+#section-notifications .notification-selected-picker, #section-notifications .notification-country-picker { display: grid; gap: 12px; }
+#section-notifications .notification-country-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 240px; overflow-y: auto; }
+#section-notifications .notification-country-list label { display: flex; flex-direction: row-reverse; justify-content: flex-end; align-items: center; gap: 10px; min-height: 44px; padding: 10px; background: var(--bg); border-radius: 10px; }
+#section-notifications .notification-audience-summary, #section-notifications .notification-audience-notice { padding: 16px; margin: 16px 0; border: 1px solid #17bdd238; background: #17bdd20a; border-radius: 12px; }
+#section-notifications .notification-audience-summary p { line-height: 1.7; }
 @media (max-width: 760px) {
   #section-notifications .notification-content-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   #section-notifications .notification-content { padding: 14px; }
+  #section-notifications .notification-audience-modes, #section-notifications .notification-country-list { grid-template-columns: minmax(0, 1fr); }
+  #section-notifications .notification-audience-section { padding: 14px; }
 }
 
 button,
