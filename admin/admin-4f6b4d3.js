@@ -1,5 +1,6 @@
 // Versioned entry point prevents stale CDN assets after admin releases.
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import { mountNotifications } from './notifications.js?v=20261016draft1';
 
 const SUPABASE_URL = "https://mewpnmaoihjksorvayjh.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_C2aTJ8BwNZFNyYcLUehGew_eRqDwTAe";
@@ -52,6 +53,7 @@ const sectionTitles = {
   overview: "Overview",
   flags: "Feature flags",
   announcements: "Announcements",
+  notifications: "Push notifications",
   users: "Users",
   reports: "Reports",
   activity: "Activity",
@@ -151,6 +153,7 @@ async function enterAdmin(session) {
     appView.hidden = false;
     loginError.textContent = "";
     applyRoleAccess();
+    switchSection('overview');
     await refreshAll();
   } catch (error) {
     console.error("Admin authorization failed", error);
@@ -160,6 +163,7 @@ async function enterAdmin(session) {
 }
 
 function showLogin(message = "", isSuccess = false) {
+  document.querySelector('#section-notifications')?.replaceChildren();
   state.context = null;
   appView.hidden = true;
   loginView.hidden = false;
@@ -1854,6 +1858,9 @@ function emptyTableRow(message, colspan) {
 }
 
 function switchSection(sectionName) {
+  if (sectionName === 'notifications' && state.context?.role === 'owner') {
+    void mountNotifications(document.querySelector('#section-notifications'), callRpc, showToast, state.context.user_id);
+  }
   state.currentSection = sectionName;
   document.querySelectorAll(".nav-item").forEach((item) => {
     item.classList.toggle("is-active", item.dataset.section === sectionName);
