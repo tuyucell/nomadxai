@@ -46,6 +46,29 @@ body {
 #section-notifications details textarea { margin-top: 8px; }
 #section-notifications .notification-confirm { width: min(90vw, 560px); max-height: 90vh; overflow: auto; background: #151827; color: #f5f5ff; border: 1px solid #ffffff40; border-radius: 18px; padding: 24px; }
 #section-notifications .notification-confirm::backdrop { background: #0009; }
+#section-notifications .notification-content { padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; min-width: 0; }
+#section-notifications .notification-content > p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+#section-notifications .notification-language-tabs { display: flex; gap: 6px; padding: 5px; overflow-x: auto; border: 1px solid var(--line); border-radius: 13px; background: var(--bg); }
+#section-notifications .notification-language-tab { display: inline-flex; flex: 1 0 auto; justify-content: center; align-items: center; gap: 8px; min-height: 44px; padding: 10px 14px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--muted); cursor: pointer; }
+#section-notifications .notification-language-tab[aria-selected="true"] { background: var(--primary); color: white; border-color: #a89dff; box-shadow: 0 3px 14px #6d5dfc38; }
+#section-notifications .notification-language-tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+#section-notifications .notification-language-badge { min-width: 15px; font-weight: 700; }
+#section-notifications .notification-language-badge[data-status="complete"] { color: var(--green); }
+#section-notifications .notification-language-tab[aria-selected="true"] .notification-language-badge { color: white; }
+#section-notifications .notification-language-progress { font-size: 13px; }
+#section-notifications .notification-content-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; }
+#section-notifications .notification-language-editors, #section-notifications .notification-language-panel { min-width: 0; }
+#section-notifications .notification-language-panel { display: grid; gap: 14px; }
+#section-notifications .notification-language-panel h4, #section-notifications .notification-preview-card h4 { margin: 0 0 2px; font-size: 14px; }
+#section-notifications .notification-language-panel textarea { resize: vertical; min-height: 140px; }
+#section-notifications .notification-preview-card { min-width: 0; padding: 16px; border-radius: 12px; background: var(--surface-2); }
+#section-notifications .notification-preview-card > p, #section-notifications .notification-preview-card small { color: var(--muted); font-size: 12px; line-height: 1.6; }
+#section-notifications .notification-preview { margin: 14px 0; min-height: 110px; background: var(--bg); }
+#section-notifications .notification-preview p { margin-bottom: 0; }
+@media (max-width: 760px) {
+  #section-notifications .notification-content-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  #section-notifications .notification-content { padding: 14px; }
+}
 
 button,
 input,

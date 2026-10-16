@@ -1,4 +1,10 @@
 export const notificationLanguages = ['tr', 'en', 'de', 'fr', 'es'];
+export const notificationLanguageNames = {tr: 'Türkçe', en: 'English', de: 'Deutsch', fr: 'Français', es: 'Español'};
+export function notificationTranslationStatus(form, language) {
+  const title = form.get(`title_${language}`)?.trim() || '';
+  const body = form.get(`body_${language}`)?.trim() || '';
+  return !title && !body ? 'empty' : title && body ? 'complete' : 'partial';
+}
 const userIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const recipientIds = value => [...new Set((value || '').split(/[\s,;]+/)
   .filter(Boolean).map(id => id.toLowerCase()))];
@@ -84,14 +90,71 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
   heading.tabIndex = -1;
   const form = el('form'); form.className = 'panel panel-card notification-campaign-form';
   form.append(heading);
+  let activeLanguage = 'tr';
+  const tabs = new Map(), languagePanels = new Map(), languageBadges = new Map();
+  const content = el('section'); content.className = 'notification-content';
+  content.append(el('h3', 'Notification content'));
+  content.append(el('p', 'Write one message per language. Users read the version matching their app language; the lock screen shows a generic localized NomadX message.'));
+  const tablist = el('div'); tablist.className = 'notification-language-tabs';
+  tablist.setAttribute('role', 'tablist'); tablist.setAttribute('aria-label', 'Message language');
+  const translationProgress = el('p'); translationProgress.className = 'notification-language-progress';
+  translationProgress.setAttribute('aria-live', 'polite');
+  const contentGrid = el('div'); contentGrid.className = 'notification-content-grid';
+  const editors = el('div'); editors.className = 'notification-language-editors';
   for (const language of notificationLanguages) {
-    const group = el('fieldset'); group.append(el('legend', language.toUpperCase()));
+    const tab = button('', () => selectLanguage(language));
+    tab.className = 'notification-language-tab'; tab.id = `notification-tab-${language}`;
+    tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', `notification-panel-${language}`);
+    const badge = el('span'); badge.className = 'notification-language-badge';
+    badge.setAttribute('aria-hidden', 'true');
+    tab.append(el('span', notificationLanguageNames[language]), badge);
+    tab.addEventListener('keydown', event => {
+      const index = notificationLanguages.indexOf(language);
+      const next = {ArrowRight: (index + 1) % 5, ArrowLeft: (index + 4) % 5, Home: 0, End: 4}[event.key];
+      if (next === undefined) return;
+      event.preventDefault(); selectLanguage(notificationLanguages[next]);
+      tabs.get(notificationLanguages[next]).focus();
+    });
+    tabs.set(language, tab); languageBadges.set(language, badge); tablist.append(tab);
+  }
+  for (const language of notificationLanguages) {
+    const group = el('section'); group.className = 'notification-language-panel';
+    group.id = `notification-panel-${language}`; group.setAttribute('role', 'tabpanel');
+    group.setAttribute('aria-labelledby', `notification-tab-${language}`);
+    group.append(el('h4', notificationLanguageNames[language]));
     for (const [name, title, max] of [['title', 'Title', 160], ['body', 'Message', 1000]]) {
       const input = el(name === 'body' ? 'textarea' : 'input');
       input.name = `${name}_${language}`; input.maxLength = max;
+      input.lang = language;
+      if (name === 'body') input.rows = 5;
       group.append(field(`${title} (${language.toUpperCase()})`, input));
     }
-    form.append(group);
+    languagePanels.set(language, group); editors.append(group);
+  }
+  contentGrid.append(editors); content.append(tablist, translationProgress, contentGrid);
+  form.append(content);
+  function updateLanguageStatus() {
+    const data = new FormData(form);
+    let complete = 0;
+    for (const language of notificationLanguages) {
+      const status = notificationTranslationStatus(data, language);
+      const badge = languageBadges.get(language);
+      badge.textContent = status === 'complete' ? '✓' : status === 'partial' ? '◐' : '·';
+      badge.dataset.status = status;
+      tabs.get(language).setAttribute('aria-label', `${notificationLanguageNames[language]} · ${status === 'complete' ? 'ready' : status === 'partial' ? 'incomplete' : 'empty'}`);
+      if (status === 'complete') complete++;
+    }
+    translationProgress.textContent = `${complete}/5 languages ready · All five are required to schedule. You can save an incomplete draft.`;
+  }
+  function selectLanguage(language) {
+    activeLanguage = language;
+    for (const key of notificationLanguages) {
+      const selected = key === language;
+      tabs.get(key).setAttribute('aria-selected', String(selected));
+      tabs.get(key).tabIndex = selected ? 0 : -1;
+      languagePanels.get(key).hidden = !selected;
+    }
+    showPreview();
   }
 
   const selected = el('div'); selected.className = 'notification-recipients';
@@ -160,20 +223,21 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
     next.setMinutes(next.getMinutes() - next.getTimezoneOffset());
     date.value = next.toISOString().slice(0, 16); dirty = true;
   }));
-  const previewLanguage = el('select');
-  for (const language of notificationLanguages) {
-    const option = el('option', language.toUpperCase()); option.value = language;
-    previewLanguage.append(option);
-  }
-  previewLanguage.value = 'en';
-  const preview = el('pre'); preview.className = 'notification-preview';
+  const previewCard = el('aside'); previewCard.className = 'notification-preview-card';
+  const previewHeading = el('h4');
+  const preview = el('div'); preview.className = 'notification-preview';
   preview.setAttribute('aria-live', 'polite');
+  const characterCount = el('small');
   function showPreview() {
-    const lang = previewLanguage.value;
-    preview.textContent = `${form.elements[`title_${lang}`].value}\n${form.elements[`body_${lang}`].value}\n\nLock screen: generic NomadX message; private content is read inside the app.`;
+    const title = form.elements[`title_${activeLanguage}`].value;
+    const body = form.elements[`body_${activeLanguage}`].value;
+    previewHeading.textContent = `In-app preview · ${notificationLanguageNames[activeLanguage]}`;
+    preview.replaceChildren(el('strong', title || 'Your notification title'), el('p', body || 'Your message will appear here.'));
+    characterCount.textContent = `Title ${title.length}/160 · Message ${body.length}/1000`;
   }
-  previewLanguage.onchange = showPreview;
-  form.append(field('Preview language', previewLanguage), preview);
+  previewCard.append(previewHeading, preview, characterCount,
+    el('p', 'Lock screen: “NomadX · You have a new notification…” in the registered app language. The full message is read inside the app.'));
+  contentGrid.append(previewCard);
   const error = el('p'); error.setAttribute('role', 'alert');
   const draftButton = button('Save draft', () => save(true), true);
   const submit = el('button', 'Review and schedule'); submit.type = 'submit';
@@ -192,12 +256,12 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
     root.querySelectorAll('button[data-mutates-campaign]').forEach(node => { node.disabled = value; });
     form.querySelectorAll('input, textarea, select, button').forEach(node => { node.disabled = value || readOnly; });
     newButton.disabled = value;
-    previewLanguage.disabled = value;
+    for (const tab of tabs.values()) tab.disabled = value;
   }
   function reset() {
     form.reset(); editing = null; dirty = false; readOnly = false; lastAttempt = null; labels.clear(); matches.replaceChildren();
-    heading.textContent = 'New campaign'; previewLanguage.value = 'en';
-    error.textContent = ''; showRecipients(); showPreview();
+    heading.textContent = 'New campaign';
+    error.textContent = ''; showRecipients(); updateLanguageStatus(); selectLanguage('tr');
     setBusy(busy);
   }
   async function edit(item) {
@@ -214,7 +278,7 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
       time.setMinutes(time.getMinutes() - time.getTimezoneOffset());
       date.value = time.toISOString().slice(0, 16);
     }
-    showRecipients(); showPreview(); heading.scrollIntoView({block: 'nearest'});
+    showRecipients(); updateLanguageStatus(); showPreview(); heading.scrollIntoView({block: 'nearest'});
   }
   async function refresh() {
     const sequence = ++refreshSequence;
@@ -231,7 +295,7 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
       if (!rows.length) history.append(el('p', 'No campaigns.'));
       for (const item of rows) {
         const row = el('article'); row.className = 'panel panel-card';
-        row.append(el('h3', item.titles.en || 'Untitled draft'), el('p',
+        row.append(el('h3', item.titles.tr || item.titles.en || 'Untitled draft'), el('p',
           `${item.state} · revision ${item.revision ?? 'unavailable'} · ${item.scheduled_at ? new Date(item.scheduled_at).toLocaleString() : 'Not scheduled'} · ${item.recipient_count} selected users`));
         row.append(el('p', Object.entries(item.delivery_summary ?? {})
           .map(([name, count]) => `${name}: ${count}`).join(' · ') || 'No delivery jobs yet.'));
@@ -263,8 +327,16 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
     if (busy) return;
     if (readOnly) { notify('Queued or cancelled content cannot be edited. Create a new campaign.', true); return; }
     const formData = new FormData(form);
+    let submitted = false;
     error.textContent = ''; setBusy(true);
     try {
+      if (!draft) {
+        const missing = notificationLanguages.find(language => notificationTranslationStatus(formData, language) !== 'complete');
+        if (missing) {
+          selectLanguage(missing);
+          throw new Error(`Complete ${notificationLanguageNames[missing]}: title and message are required before scheduling.`);
+        }
+      }
       const input = notificationCampaignMutation(formData, editing, draft);
       const attempt = notificationCampaignOperation(input, lastAttempt);
       if (!draft) {
@@ -273,6 +345,7 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
         if (!await confirmAction(`Schedule ${input.p_recipient_ids.length} selected users for ${new Date(input.p_scheduled_at).toLocaleString()} (${zone})? Currently ${audience.inbox_users} inbox subscribers and ${audience.push_devices} push devices. Permissions, quiet hours and limits are rechecked at delivery.`, 'Confirm schedule')) return;
       } else if (editing?.state === 'scheduled' && !await confirmAction('Save as draft and remove the existing schedule?', 'Confirm draft')) return;
       lastAttempt = attempt;
+      submitted = true;
       const result = await rpc('admin_save_notification_campaign', {...input, p_operation_id: lastAttempt.id});
       lastAttempt = null;
       editing = {id: result.id, revision: result.revision, state: result.state}; dirty = false;
@@ -280,13 +353,16 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
       notify(draft ? 'Draft saved; nothing scheduled or sent.' : 'Scheduled; not a delivery confirmation.');
       await refresh();
     } catch (failure) {
-      if (['40001', '22023', '42501', 'P0002'].includes(failure.code)) lastAttempt = null;
-      error.textContent = `Save not confirmed: ${failure.message}. Your form has been kept. A lost response may have committed: retry unchanged to confirm. For a revision conflict, refresh history and reopen the latest campaign.`;
+      const rejected = ['40001', '22023', '42501', 'P0002'].includes(failure.code);
+      if (rejected) lastAttempt = null;
+      if (!submitted && !lastAttempt) error.textContent = failure.message;
+      else if (rejected) error.textContent = `Could not save: ${failure.message}. Your form has been kept.${failure.code === '40001' ? ' Refresh history and reopen the latest campaign.' : ''}`;
+      else error.textContent = `Save not confirmed: ${failure.message}. Your form has been kept. A lost response may have committed: retry unchanged to confirm, or check history before changing the campaign.`;
     } finally { setBusy(false); }
   }
-  form.addEventListener('input', () => { dirty = true; showPreview(); });
+  form.addEventListener('input', () => { dirty = true; updateLanguageStatus(); showPreview(); });
   form.onsubmit = event => { event.preventDefault(); return save(false); };
   root.append(form, reload, history);
-  showRecipients(); showPreview();
+  showRecipients(); updateLanguageStatus(); selectLanguage('tr');
   return refresh();
 }
