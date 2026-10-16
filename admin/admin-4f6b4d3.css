@@ -112,6 +112,20 @@ body {
 #section-notifications .notification-history-actions { margin-top: auto; }
 #section-notifications .notification-history-actions button { min-height: 44px; white-space: normal; }
 #section-notifications .notification-history-card details { color: var(--muted); font-size: 12px; }
+#section-notifications .notification-schedule { display: grid; gap: 14px; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+#section-notifications .notification-schedule h3, #section-notifications .notification-schedule p { margin: 0; }
+#section-notifications .notification-schedule small { color: var(--muted); line-height: 1.6; }
+#section-notifications .notification-quick-times { display: flex; flex-wrap: wrap; gap: 8px; }
+#section-notifications .notification-quick-times button[aria-pressed="true"] { background: var(--primary); color: white; }
+#section-notifications .notification-custom-time { display: grid; grid-template-columns: minmax(0,190px) minmax(0,130px); gap: 12px; width: min(100%,332px); }
+#section-notifications .notification-custom-time input { height: 44px; min-height: 44px; padding: 0 10px; font-size: 14px; }
+#section-notifications .notification-quick-times .button { flex: 0 0 auto; min-height: 34px; width: auto; padding: 0 12px; font-size: 12px; border-radius: 8px; }
+#section-notifications .notification-form-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+#section-notifications .notification-form-actions .button { width: auto; min-height: 44px; flex: 0 0 auto; }
+#section-notifications .notification-error-region { border: 2px solid var(--red) !important; border-radius: 12px; box-shadow: 0 0 0 3px #ff657a18; }
+#section-notifications [aria-invalid="true"], #section-notifications .notification-tab-error { border-color: var(--red) !important; box-shadow: 0 0 0 2px #ff657a25; }
+#section-notifications .notification-form-error:not(:empty) { color: #ffb2be; background: #ff657a12; border: 1px solid var(--red); border-radius: 12px; padding: 16px; line-height: 1.6; }
+#section-notifications .notification-inline-error { color: #ffb2be; font-size: 14px; padding: 10px; line-height: 1.6; }
 @media (max-width: 760px) {
   #section-notifications .notification-content-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   #section-notifications .notification-content { padding: 14px; }
@@ -125,6 +139,7 @@ body {
   #section-notifications .notification-history-stats strong { font-size: 24px; }
   #section-notifications .notification-history-meta { grid-template-columns: minmax(0,1fr); gap: 4px; }
   #section-notifications .notification-history-meta dd { margin-bottom: 8px; }
+  #section-notifications .notification-custom-time { grid-template-columns: minmax(0,1.35fr) minmax(0,1fr); }
 }
 
 button,

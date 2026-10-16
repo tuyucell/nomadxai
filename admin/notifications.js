@@ -17,36 +17,50 @@ export function notificationDeliverySettingsInput(enabled, value) {
 const userIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const recipientIds = value => [...new Set((value || '').split(/[\s,;]+/)
   .filter(Boolean).map(id => id.toLowerCase()))];
+function invalid(message, fields, section) {
+  return Object.assign(new Error(message), {fields, section});
+}
+export function notificationQuickSchedule(minutes, now = new Date()) {
+  if (![0, 10, 15, 60].includes(minutes) || !Number.isFinite(now.getTime())) throw new Error('Geçersiz zaman seçimi.');
+  const time = new Date(now.getTime() + minutes * 60000);
+  time.setMinutes(time.getMinutes() - time.getTimezoneOffset());
+  return time.toISOString().slice(0, 16);
+}
 export function notificationAudienceInput(form, {draft = false} = {}) {
   const mode = form.get('audience_mode') || 'selected';
-  if (!['selected', 'all', 'countries'].includes(mode)) throw new Error('Geçerli bir hedef kitle seçin.');
+  if (!['selected', 'all', 'countries'].includes(mode)) throw invalid('Geçerli bir hedef kitle seçin.', ['audience_mode'], 'audience');
   const recipients = mode === 'selected' ? recipientIds(form.get('recipients')) : [];
   const countries = mode === 'countries' ? [...new Set((form.get('country_codes') || '').split(/[\s,;]+/).filter(Boolean).map(code => code.toUpperCase()))].sort() : [];
   if (recipients.length > 100 || recipients.some(id => !userIdPattern.test(id)) ||
-      (!draft && mode === 'selected' && !recipients.length)) throw new Error('En az bir kullanıcı seçin. Boş seçim herkese göndermez; tek tek seçim en fazla 100 kullanıcıdır.');
+      (!draft && mode === 'selected' && !recipients.length)) throw invalid('En az bir kullanıcı seçin. Boş seçim herkese göndermez; tek tek seçim en fazla 100 kullanıcıdır.', ['recipients'], 'audience');
   if (countries.length > 250 || countries.some(code => !/^[A-Z]{2}$/.test(code)) ||
-      (!draft && mode === 'countries' && !countries.length)) throw new Error('Ülkeye göre gönderim için en az bir ülke seçin.');
+      (!draft && mode === 'countries' && !countries.length)) throw invalid('Ülkeye göre gönderim için en az bir ülke seçin.', ['country_codes'], 'audience');
   return {p_mode: mode, p_recipient_ids: recipients, p_country_codes: countries};
 }
 
 export function notificationCampaignInput(form, {draft = false} = {}) {
-  const titles = {}, bodies = {};
+  const titles = {}, bodies = {}, issues = [];
   for (const language of notificationLanguages) {
     titles[language] = form.get(`title_${language}`)?.trim() || '';
     bodies[language] = form.get(`body_${language}`)?.trim() || '';
     if (titles[language].length > 160 || bodies[language].length > 1000 ||
         (!draft && (!titles[language] || !bodies[language]))) {
-      throw new Error('Scheduling requires a title and message in all five languages (160/1000 characters maximum).');
+      const fields = [['title', titles[language], 160], ['body', bodies[language], 1000]]
+        .filter(([, value, max]) => value.length > max || (!draft && !value)).map(([key]) => `${key}_${language}`);
+      issues.push(invalid(`${notificationLanguageNames[language]}: başlık ve mesaj gerekli; en fazla 160/1000 karakter.`, fields, language));
     }
   }
-  const audience = notificationAudienceInput(form, {draft});
+  let audience;
+  try { audience = notificationAudienceInput(form, {draft}); }
+  catch (failure) { issues.push(failure); }
   const dateText = form.get('scheduled_at');
   const scheduled = dateText ? new Date(dateText) : null;
   if ((scheduled && !Number.isFinite(scheduled.getTime())) ||
       (!draft && (!scheduled || scheduled.getTime() < Date.now() - 120000 ||
         scheduled.getTime() > Date.now() + 365 * 86400000))) {
-    throw new Error('Choose a valid time within the next 365 days.');
+    issues.push(invalid('Tarih ve saat seçmelisin. Geçmiş bir zaman veya 365 günden sonrası kullanılamaz.', ['scheduled_at'], 'schedule'));
   }
+  if (issues.length) throw Object.assign(issues[0], {issues});
   return {p_titles: titles, p_bodies: bodies, ...audience,
     p_scheduled_at: scheduled?.toISOString() ?? null};
 }
@@ -65,12 +79,12 @@ export function notificationCampaignOperation(input, previous, createId = () => 
   return previous || {fingerprint, id: createId()};
 }
 
-// Copy content and audience, never identity/revision/schedule/delivery state.
+// Copy content/audience with a fresh ten-minute default, never old schedule or identity.
 // Publishing the resulting form still requires a fresh audience preview and confirmation.
-export function notificationCampaignCopy(item) {
+export function notificationCampaignCopy(item, now = new Date()) {
   const mode = item.audience_mode || 'selected';
   if (!['selected', 'all', 'countries'].includes(mode)) throw new Error('Bu hedef kitle kopyalanamıyor.');
-  const data = new Map([['audience_mode', mode], ['scheduled_at', ''],
+  const data = new Map([['audience_mode', mode], ['scheduled_at', notificationQuickSchedule(10, now)],
     ['recipients', mode === 'selected' ? (item.recipient_ids || []).join('\n') : ''],
     ['country_codes', mode === 'countries' ? (item.audience_country_codes || []).join(',') : '']]);
   for (const language of notificationLanguages) {
@@ -169,9 +183,9 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
   const limitEnabled = el('input'); limitEnabled.type = 'checkbox'; limitEnabled.disabled = true;
   const limitValue = el('input'); limitValue.type = 'number'; limitValue.min = 1; limitValue.max = 10000;
   limitValue.step = 1; limitValue.placeholder = '1–10000'; limitValue.disabled = true;
-  const settingsError = el('p'); settingsError.setAttribute('role', 'alert');
+  const settingsError = el('p'); settingsError.setAttribute('role', 'alert'); settingsError.className = 'notification-form-error';
   const settingsSave = button('Ayarları kaydet', async () => {
-    settingsError.textContent = '';
+    settingsError.textContent = ''; settings.classList.remove('notification-error-region');
     try {
       const input = notificationDeliverySettingsInput(limitEnabled.checked, limitValue.value);
       if (!await confirmAction(input.p_daily_limit_enabled ?
@@ -180,7 +194,7 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
       settingsSave.disabled = true; settingsReload.disabled = true; limitEnabled.disabled = true; limitValue.disabled = true;
       const result = await rpc('admin_update_notification_delivery_settings', input);
       renderSettings(result); notify('Bildirim ayarları kaydedildi.');
-    } catch (failure) { settingsError.textContent = `Ayar kaydı doğrulanamadı: ${failure.message}. Mevcut değeri görmek için ayarları yenile.`; }
+    } catch (failure) { settings.classList.add('notification-error-region'); settingsError.textContent = `Ayar kaydı doğrulanamadı: ${failure.message}. Mevcut değeri görmek için ayarları yenile.`; }
     finally { settingsSave.disabled = false; settingsReload.disabled = false; limitEnabled.disabled = false; limitValue.disabled = !limitEnabled.checked; }
   });
   const settingsReload = button('Ayarları yenile', () => loadSettings());
@@ -192,10 +206,10 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
     settingsStatus.textContent = `Push gönderimi ${value.push_enabled ? 'açık' : 'kapalı'} · ${value.daily_limit_enabled ? `Kişi başına günlük sınır: ${value.daily_limit}` : 'Günlük sayı sınırı yok'}`;
   }
   async function loadSettings() {
-    settingsError.textContent = ''; settingsSave.disabled = true; settingsReload.disabled = true;
+    settingsError.textContent = ''; settings.classList.remove('notification-error-region'); settingsSave.disabled = true; settingsReload.disabled = true;
     limitEnabled.disabled = true; limitValue.disabled = true; settingsStatus.textContent = 'Gönderim ayarları yükleniyor…';
     try { renderSettings(await rpc('admin_get_notification_delivery_settings')); }
-    catch (failure) { settingsStatus.textContent = `Ayarlar okunamadı: ${failure.message}. Sınır kapalı varsayılmadı; yeniden dene.`; }
+    catch (failure) { settings.classList.add('notification-error-region'); settingsStatus.textContent = `Ayarlar okunamadı: ${failure.message}. Sınır kapalı varsayılmadı; yeniden dene.`; }
     finally { settingsReload.disabled = false; }
   }
   limitEnabled.onchange = () => { limitValue.disabled = !limitEnabled.checked; };
@@ -208,12 +222,13 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
   const heading = el('h3', 'New campaign');
   heading.tabIndex = -1;
   const form = el('form'); form.className = 'panel panel-card notification-campaign-form';
+  form.noValidate = true;
   form.append(heading);
   let activeLanguage = 'tr';
   const tabs = new Map(), languagePanels = new Map(), languageBadges = new Map();
   const content = el('section'); content.className = 'notification-content';
   content.append(el('h3', 'Notification content'));
-  content.append(el('p', 'Write one message per language. Users read the version matching their app language; the lock screen shows a generic localized NomadX message.'));
+  content.append(el('p', 'Her dil için başlık ve mesaj yaz. Alıcı uygulama dilindeki içeriği okur. Gizli veya kişisel bilgi yazma.'));
   const tablist = el('div'); tablist.className = 'notification-language-tabs';
   tablist.setAttribute('role', 'tablist'); tablist.setAttribute('aria-label', 'Message language');
   const translationProgress = el('p'); translationProgress.className = 'notification-language-progress';
@@ -426,16 +441,40 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
   };
   recipients.addEventListener('change', () => { void refreshAudience(); });
   audienceSection.append(selectedPicker, countriesValue, countryPicker, allNotice, audienceSummary, audienceReload);
-  form.append(audienceSection, el('h3', '2. Ne zaman gönderilsin?'));
-
-  const date = el('input'); date.type = 'datetime-local'; date.name = 'scheduled_at';
+  form.append(audienceSection);
+  const scheduleSection = el('section'); scheduleSection.className = 'notification-schedule';
+  scheduleSection.append(el('h3', '2. Ne zaman gönderilsin?'));
+  const date = el('input'); date.type = 'hidden'; date.name = 'scheduled_at';
+  const calendar = el('input'); calendar.type = 'date'; calendar.name = 'schedule_date';
+  const clock = el('input'); clock.type = 'time'; clock.name = 'schedule_time'; clock.step = 60;
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  form.append(field(`Schedule (${zone}; optional for drafts)`, date));
-  form.append(button('Schedule as soon as possible', () => {
-    const next = new Date(Date.now() + 60000);
-    next.setMinutes(next.getMinutes() - next.getTimezoneOffset());
-    date.value = next.toISOString().slice(0, 16); dirty = true;
-  }));
+  const quickTimes = el('div'); quickTimes.className = 'notification-quick-times';
+  const scheduleSummary = el('p'); scheduleSummary.setAttribute('aria-live', 'polite');
+  const quickButtons = [];
+  function syncSchedule() {
+    [calendar.value, clock.value] = date.value ? date.value.split('T') : ['', ''];
+    const parsed = new Date(date.value);
+    scheduleSummary.textContent = Number.isFinite(parsed.getTime()) ?
+      `${parsed.toLocaleString('tr-TR', {dateStyle:'full',timeStyle:'short'})} · ${zone}` : 'Zaman seçilmedi. Taslağı zaman seçmeden kaydedebilirsin.';
+    for (const quick of quickButtons) quick.setAttribute('aria-pressed', 'false');
+  }
+  for (const [label, minutes] of [['Şimdi', 0], ['10 dk sonra', 10], ['1 saat sonra', 60]]) {
+    const quick = button(label, () => {
+      date.value = notificationQuickSchedule(minutes); syncSchedule(); quick.setAttribute('aria-pressed', 'true');
+      dirty = true; clearFormErrors();
+    });
+    quick.setAttribute('aria-pressed', 'false'); quickButtons.push(quick); quickTimes.append(quick);
+  }
+  const customTime = el('div'); customTime.className = 'notification-custom-time';
+  customTime.append(field('Tarih', calendar), field('Saat', clock));
+  calendar.oninput = clock.oninput = () => {
+    date.value = calendar.value && clock.value ? `${calendar.value}T${clock.value}` : '';
+    const selectedDate = calendar.value, selectedTime = clock.value;
+    syncSchedule(); calendar.value = selectedDate; clock.value = selectedTime; dirty = true;
+  };
+  scheduleSection.append(customTime, quickTimes, date, scheduleSummary,
+    el('small', `Saat dilimi: ${zone}. “Şimdi” seçimi onaydan sonra sıradaki worker çalışmasında gönderilir; anında teslim garantisi değildir.`));
+  form.append(scheduleSection); syncSchedule();
   const previewCard = el('aside'); previewCard.className = 'notification-preview-card';
   const previewHeading = el('h4');
   const preview = el('div'); preview.className = 'notification-preview';
@@ -449,9 +488,44 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
     characterCount.textContent = `Title ${title.length}/160 · Message ${body.length}/1000`;
   }
   previewCard.append(previewHeading, preview, characterCount,
-    el('p', 'Lock screen: “NomadX · You have a new notification…” in the registered app language. The full message is read inside the app.'));
+    el('p', 'Uygulama içi içerik önizlemesi. Kilit ekranı ve Watch önizlemesi, sunucudaki gönderim sürümüne ve telefon ayarlarına bağlıdır.'));
   contentGrid.append(previewCard);
   const error = el('p'); error.setAttribute('role', 'alert');
+  error.id = 'notification-form-error'; error.className = 'notification-form-error'; error.tabIndex = -1;
+  function clearFormErrors() {
+    form.querySelectorAll('[aria-invalid="true"]').forEach(node => { node.removeAttribute('aria-invalid'); node.removeAttribute('aria-describedby'); });
+    form.querySelectorAll('.notification-error-region').forEach(node => node.classList.remove('notification-error-region'));
+    for (const tab of tabs.values()) tab.classList.remove('notification-tab-error');
+    form.querySelectorAll('.notification-inline-error').forEach(node => node.remove());
+    form.classList.remove('notification-error-region'); error.textContent = '';
+  }
+  function showFormFailure(failure) {
+    const issues = failure.issues || [failure];
+    let firstRegion, firstTarget;
+    for (const issue of issues) {
+      const section = issue.section;
+      if (notificationLanguages.includes(section)) {
+        tabs.get(section).classList.add('notification-tab-error');
+        if (!firstRegion) selectLanguage(section);
+      }
+      const region = section === 'audience' ? audienceSection : section === 'schedule' ? scheduleSection :
+        notificationLanguages.includes(section) ? languagePanels.get(section) : form;
+      region.classList.add('notification-error-region'); region.setAttribute('aria-describedby', error.id);
+      if (region !== form) { const localError = el('p', issue.message); localError.className = 'notification-inline-error'; region.append(localError); }
+      let target;
+      for (const name of issue.fields || []) {
+        const input = form.elements[name];
+        if (input instanceof HTMLElement) { input.setAttribute('aria-invalid', 'true'); input.setAttribute('aria-describedby', error.id); if (input.type !== 'hidden') target ||= input; }
+      }
+      if (section === 'schedule') {
+        for (const input of [calendar, clock]) { input.setAttribute('aria-invalid', 'true'); input.setAttribute('aria-describedby', error.id); }
+        target = !calendar.value ? calendar : clock;
+      }
+      if (!firstRegion) { firstRegion = region; firstTarget = target; }
+    }
+    firstRegion.scrollIntoView({block:'center',behavior:'smooth'});
+    queueMicrotask(() => (firstTarget || error).focus());
+  }
   const draftButton = button('Save draft', () => save(true), true);
   const submit = el('button', 'Review and schedule'); submit.type = 'submit';
   submit.className = 'button button-primary';
@@ -461,7 +535,9 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
     if ((dirty || lastAttempt) && !await confirmAction(message, 'Discard changes')) return;
     reset();
   }, true);
-  form.append(el('p', 'Toplu hedef kitle zamanlama anında sabitlenir. İzinler gönderimde tekrar kontrol edilir. Yeni gönderim yalnız son onayından sonra zamanlanır.'), draftButton, submit, newButton, error);
+  const formActions = el('div'); formActions.className = 'notification-form-actions';
+  formActions.append(submit, draftButton, newButton);
+  form.append(el('p', 'Toplu hedef kitle zamanlama anında sabitlenir. İzinler gönderimde tekrar kontrol edilir. Yeni gönderim yalnız son onayından sonra zamanlanır.'), formActions, error);
   const history = el('div'); history.className = 'notification-history-grid'; history.setAttribute('aria-live', 'polite');
   const reload = button('Geçmişi yenile', () => refresh());
   const historyHeading = el('h3', 'Gönderim geçmişi');
@@ -492,7 +568,7 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
     modes.get('selected').checked = true; countriesValue.value = ''; countrySearch.value = '';
     countryList.querySelectorAll('label').forEach(label => { label.hidden = false; });
     heading.textContent = 'New campaign';
-    error.textContent = ''; showRecipients(); showAudienceMode(); void refreshAudience(); updateLanguageStatus(); selectLanguage('tr');
+    clearFormErrors(); syncSchedule(); showRecipients(); showAudienceMode(); void refreshAudience(); updateLanguageStatus(); selectLanguage('tr');
     setBusy(busy);
   }
   async function edit(item) {
@@ -512,7 +588,7 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
       time.setMinutes(time.getMinutes() - time.getTimezoneOffset());
       date.value = time.toISOString().slice(0, 16);
     }
-    showRecipients(); showAudienceMode(); void refreshAudience(); updateLanguageStatus(); showPreview(); heading.scrollIntoView({block: 'nearest'});
+    syncSchedule(); showRecipients(); showAudienceMode(); void refreshAudience(); updateLanguageStatus(); showPreview(); heading.scrollIntoView({block: 'nearest'});
   }
   async function copyCampaign(item) {
     if (busy || ((dirty || lastAttempt) && !await confirmAction('Mevcut form değişiklikleri bırakılsın mı? Belirsiz bir kayıt varsa önce geçmişten kontrol et.', 'Değişiklikleri bırak'))) return;
@@ -525,15 +601,16 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
       }
       modes.get(data.get('audience_mode')).checked = true;
       recipients.value = data.get('recipients'); countriesValue.value = data.get('country_codes');
-      date.value = ''; dirty = true;
+      date.value = data.get('scheduled_at'); syncSchedule(); dirty = true;
       heading.textContent = 'Yeniden gönder · Yeni bildirim';
       showRecipients(); showAudienceMode(); void refreshAudience(); updateLanguageStatus(); showPreview();
       selectView('compose'); heading.focus(); heading.scrollIntoView({block: 'nearest'});
-      notify('İçerik ve hedef kitle kopyalandı. Zaman seçip kontrol et; henüz gönderilmedi. Ülke/tüm kullanıcı hedefleri güncel izinlere göre yeniden hesaplanır.');
+      notify('İçerik ve hedef kitle kopyalandı. Zaman 10 dakika sonrası olarak ayarlandı; değiştirebilirsin. Henüz gönderilmedi.');
     } catch (failure) { notify(`Kopyalanamadı: ${failure.message}`, true); }
   }
   function renderHistory() {
     history.replaceChildren(); historyStats.replaceChildren();
+    history.classList.toggle('notification-error-region', Boolean(historyFailure));
     if (historyLoading) { history.textContent = 'Geçmiş yükleniyor…'; return; }
     if (historyFailure) { history.textContent = historyFailure; return; }
     const metrics = [['Kampanya', historyRows.length], ['FCM kabulü · cihaz işi', historyRows.reduce((n, item) => n + (item.delivery_summary?.accepted || 0), 0)],
@@ -608,22 +685,15 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
     if (readOnly) { notify('Queued or cancelled content cannot be edited. Create a new campaign.', true); return; }
     const formData = new FormData(form);
     let submitted = false;
-    error.textContent = ''; setBusy(true);
+    clearFormErrors(); setBusy(true);
     try {
-      if (!draft) {
-        const missing = notificationLanguages.find(language => notificationTranslationStatus(formData, language) !== 'complete');
-        if (missing) {
-          selectLanguage(missing);
-          throw new Error(`Complete ${notificationLanguageNames[missing]}: title and message are required before scheduling.`);
-        }
-      }
       const input = notificationCampaignMutation(formData, editing, draft);
       const attempt = notificationCampaignOperation(input, lastAttempt);
       if (!draft) {
         const audience = await rpc('admin_preview_notification_segment', {
           p_mode: input.p_mode, p_recipient_ids: input.p_recipient_ids, p_country_codes: input.p_country_codes});
         renderAudience(audience);
-        if (!audience.inbox_users) throw new Error('Bu hedef kitlede duyuru izni veren kullanıcı yok. Gönderim oluşturulmadı.');
+        if (!audience.inbox_users) throw invalid('Bu hedef kitlede duyuru izni veren kullanıcı yok. Gönderim oluşturulmadı.', ['audience_mode'], 'audience');
         if (!await confirmAction(`Hedef: ${audienceLabel(input)}. ${new Date(input.p_scheduled_at).toLocaleString()} (${zone}) için zamanlanacak. Tahmini ${audience.inbox_users} uygulama içi alıcı, ${audience.push_users} push alıcısı, ${audience.push_devices} cihaz. İzinler, sessiz saatler ve kota gönderimde kontrol edilir.`, 'Confirm schedule', {broadAudience: input.p_mode !== 'selected'})) return;
       } else if (editing?.state === 'scheduled' && !await confirmAction('Save as draft and remove the existing schedule?', 'Confirm draft')) return;
       lastAttempt = attempt;
@@ -641,9 +711,10 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
       if (!submitted && !lastAttempt) error.textContent = failure.message;
       else if (rejected) error.textContent = `Could not save: ${failure.message}. Your form has been kept.${failure.code === '40001' ? ' Refresh history and reopen the latest campaign.' : ''}`;
       else error.textContent = `Save not confirmed: ${failure.message}. Your form has been kept. A lost response may have committed: retry unchanged to confirm, or check history before changing the campaign.`;
+      showFormFailure(failure);
     } finally { setBusy(false); }
   }
-  form.addEventListener('input', () => { dirty = true; updateLanguageStatus(); showPreview(); });
+  form.addEventListener('input', () => { dirty = true; clearFormErrors(); updateLanguageStatus(); showPreview(); });
   form.onsubmit = event => { event.preventDefault(); return save(false); };
   composePanel.append(form, settingsDetails, el('p', 'Zamanlanmış bildirimler düzenleme sırasında işlenebilir. Gönderimi durdurmak için geçmişten “Bekleyen gönderimi iptal et” seçeneğini kullan.'));
   showRecipients(); showAudienceMode(); void refreshAudience(); void loadCountries(); void loadSettings(); updateLanguageStatus(); selectLanguage('tr');
