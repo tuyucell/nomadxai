@@ -5,6 +5,15 @@ export function notificationTranslationStatus(form, language) {
   const body = form.get(`body_${language}`)?.trim() || '';
   return !title && !body ? 'empty' : title && body ? 'complete' : 'partial';
 }
+export function notificationDeliverySettingsInput(enabled, value) {
+  if (typeof enabled !== 'boolean') throw new Error('Günlük sınır tercihi geçersiz.');
+  if (!enabled) return {p_daily_limit_enabled: false, p_daily_limit: null};
+  const text = String(value ?? '').trim();
+  if (!/^[0-9]+$/.test(text) || Number(text) < 1 || Number(text) > 10000) {
+    throw new Error('Günlük sınır için 1–10000 arasında tam sayı gir.');
+  }
+  return {p_daily_limit_enabled: true, p_daily_limit: Number(text)};
+}
 const userIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const recipientIds = value => [...new Set((value || '').split(/[\s,;]+/)
   .filter(Boolean).map(id => id.toLowerCase()))];
@@ -99,6 +108,46 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
   root.replaceChildren();
   root.append(el('h2', 'Push notifications'));
   root.append(el('p', 'Owner only · These campaigns are separate from the in-app Announcements banner. Scheduling does not confirm delivery; the server worker, scheduler and push flag must be enabled separately.'));
+  const settings = el('section'); settings.className = 'panel panel-card notification-delivery-settings';
+  const settingsStatus = el('p', 'Gönderim ayarları yükleniyor…'); settingsStatus.setAttribute('aria-live', 'polite');
+  const limitEnabled = el('input'); limitEnabled.type = 'checkbox'; limitEnabled.disabled = true;
+  const limitValue = el('input'); limitValue.type = 'number'; limitValue.min = 1; limitValue.max = 10000;
+  limitValue.step = 1; limitValue.placeholder = '1–10000'; limitValue.disabled = true;
+  const settingsError = el('p'); settingsError.setAttribute('role', 'alert');
+  const settingsSave = button('Ayarları kaydet', async () => {
+    settingsError.textContent = '';
+    try {
+      const input = notificationDeliverySettingsInput(limitEnabled.checked, limitValue.value);
+      if (!await confirmAction(input.p_daily_limit_enabled ?
+        `Kişi başına günlük sınır ${input.p_daily_limit} bildirim olsun mu? Bugünkü mevcut gönderimler de sayılır.` :
+        'Günlük sayı sınırı kapatılsın mı? İzinler, sessiz saatler ve güvenli kuyruk kontrolleri devam eder; bu işlem bildirim göndermez.', 'Ayarları onayla')) return;
+      settingsSave.disabled = true; settingsReload.disabled = true; limitEnabled.disabled = true; limitValue.disabled = true;
+      const result = await rpc('admin_update_notification_delivery_settings', input);
+      renderSettings(result); notify('Bildirim ayarları kaydedildi.');
+    } catch (failure) { settingsError.textContent = `Ayar kaydı doğrulanamadı: ${failure.message}. Mevcut değeri görmek için ayarları yenile.`; }
+    finally { settingsSave.disabled = false; settingsReload.disabled = false; limitEnabled.disabled = false; limitValue.disabled = !limitEnabled.checked; }
+  });
+  const settingsReload = button('Ayarları yenile', () => loadSettings());
+  settingsSave.disabled = true;
+  function renderSettings(value) {
+    limitEnabled.checked = value.daily_limit_enabled;
+    limitValue.value = value.daily_limit_enabled ? value.daily_limit : '';
+    limitEnabled.disabled = false; limitValue.disabled = !limitEnabled.checked; settingsSave.disabled = false;
+    settingsStatus.textContent = `Push gönderimi ${value.push_enabled ? 'açık' : 'kapalı'} · ${value.daily_limit_enabled ? `Kişi başına günlük sınır: ${value.daily_limit}` : 'Günlük sayı sınırı yok'}`;
+  }
+  async function loadSettings() {
+    settingsError.textContent = ''; settingsSave.disabled = true; settingsReload.disabled = true;
+    limitEnabled.disabled = true; limitValue.disabled = true; settingsStatus.textContent = 'Gönderim ayarları yükleniyor…';
+    try { renderSettings(await rpc('admin_get_notification_delivery_settings')); }
+    catch (failure) { settingsStatus.textContent = `Ayarlar okunamadı: ${failure.message}. Sınır kapalı varsayılmadı; yeniden dene.`; }
+    finally { settingsReload.disabled = false; }
+  }
+  limitEnabled.onchange = () => { limitValue.disabled = !limitEnabled.checked; };
+  settings.append(el('h3', 'Bildirim gönderim ayarları'), settingsStatus,
+    field('Kişi başına günlük sınır uygula', limitEnabled), field('Günlük bildirim sayısı', limitValue),
+    el('small', 'Kapalıysa günlük sayı sınırı yoktur. Açıksa kullanıcının yerel gününe göre hesaplanır; cihaz sayısı ve tekrar denemeler aynı bildirimi iki kez saymaz. İzin ve sessiz saat kontrolleri her durumda korunur.'),
+    settingsSave, settingsReload, settingsError);
+  root.append(settings);
   const heading = el('h3', 'New campaign');
   heading.tabIndex = -1;
   const form = el('form'); form.className = 'panel panel-card notification-campaign-form';
@@ -477,6 +526,6 @@ export function mountNotifications(root, rpc, notify, adminUserId) {
   form.addEventListener('input', () => { dirty = true; updateLanguageStatus(); showPreview(); });
   form.onsubmit = event => { event.preventDefault(); return save(false); };
   root.append(form, el('p', 'Zamanlanmış kampanyalar, düzenleme sırasında mevcut saatinde işlenebilir. Gönderimi durdurmak için geçmişten “Cancel pending delivery” seçeneğini kullan.'), reload, history);
-  showRecipients(); showAudienceMode(); void refreshAudience(); void loadCountries(); updateLanguageStatus(); selectLanguage('tr');
+  showRecipients(); showAudienceMode(); void refreshAudience(); void loadCountries(); void loadSettings(); updateLanguageStatus(); selectLanguage('tr');
   return refresh();
 }

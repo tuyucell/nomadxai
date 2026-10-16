@@ -80,6 +80,9 @@ body {
 #section-notifications .notification-country-list label { display: flex; flex-direction: row-reverse; justify-content: flex-end; align-items: center; gap: 10px; min-height: 44px; padding: 10px; background: var(--bg); border-radius: 10px; }
 #section-notifications .notification-audience-summary, #section-notifications .notification-audience-notice { padding: 16px; margin: 16px 0; border: 1px solid #17bdd238; background: #17bdd20a; border-radius: 12px; }
 #section-notifications .notification-audience-summary p { line-height: 1.7; }
+#section-notifications .notification-delivery-settings { display: grid; gap: 12px; padding: 20px; }
+#section-notifications .notification-delivery-settings small { color: var(--muted); line-height: 1.6; }
+#section-notifications .notification-delivery-settings input[type="checkbox"] { width: 20px; height: 20px; min-height: 20px; padding: 0; accent-color: var(--primary); }
 @media (max-width: 760px) {
   #section-notifications .notification-content-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   #section-notifications .notification-content { padding: 14px; }
