@@ -5,6 +5,9 @@
   const DAILY_API = 'https://mewpnmaoihjksorvayjh.supabase.co/functions/v1/daily-route-public';
   const APP_STORE = 'https://apps.apple.com/app/id6797188085';
   const params = new URLSearchParams(window.location.search);
+  // A participation token is not a public preview token. Its dedicated landing
+  // page never fetches private metadata or creates membership in the browser.
+  if (params.has('join')) return;
   const token = (params.get('share') || '').trim();
   const dailyToken = (params.get('daily') || '').trim();
   const loading = document.getElementById('loading');

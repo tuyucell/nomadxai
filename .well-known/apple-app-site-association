@@ -6,6 +6,11 @@
         "components": [
           {
             "/": "/tour.html",
+            "?": { "join": "*" },
+            "comment": "Review and explicitly accept a participation link in NomadX"
+          },
+          {
+            "/": "/tour.html",
             "?": { "share": "*" },
             "comment": "Open a shared regional tour in NomadX"
           },
