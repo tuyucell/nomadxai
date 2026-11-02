@@ -1,6 +1,7 @@
 // Versioned entry point prevents stale CDN assets after admin releases.
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import { mountNotifications } from './notifications.js?v=20261016compact10';
+import { mountRoadTripPlaces, unmountRoadTripPlaces } from './road-trip-places.js?v=20261102';
 
 const SUPABASE_URL = "https://mewpnmaoihjksorvayjh.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_C2aTJ8BwNZFNyYcLUehGew_eRqDwTAe";
@@ -163,6 +164,7 @@ async function enterAdmin(session) {
 }
 
 function showLogin(message = "", isSuccess = false) {
+  unmountRoadTripPlaces(document.querySelector('#roadTripPlacesControls'));
   document.querySelector('#section-notifications')?.replaceChildren();
   state.context = null;
   appView.hidden = true;
@@ -174,6 +176,7 @@ function showLogin(message = "", isSuccess = false) {
 }
 
 function showRecovery(message = "") {
+  unmountRoadTripPlaces(document.querySelector('#roadTripPlacesControls'));
   state.context = null;
   appView.hidden = true;
   loginView.hidden = false;
@@ -1858,6 +1861,9 @@ function emptyTableRow(message, colspan) {
 }
 
 function switchSection(sectionName) {
+  if (sectionName === 'flags' && state.context?.role === 'owner') {
+    mountRoadTripPlaces(document.querySelector('#roadTripPlacesControls'), callRpc, showToast, state.context.user_id);
+  }
   if (sectionName === 'notifications' && state.context?.role === 'owner') {
     void mountNotifications(document.querySelector('#section-notifications'), callRpc, showToast, state.context.user_id);
   }

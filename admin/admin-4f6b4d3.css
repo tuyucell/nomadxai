@@ -1,4 +1,11 @@
 /* Versioned stylesheet prevents stale CDN assets after admin releases. */
+#roadTripPlacesControls .road-trip-places-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; padding: 24px; margin: 24px 0; }
+#roadTripPlacesControls h2, #roadTripPlacesControls p { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; }
+#roadTripPlacesControls label { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+#roadTripPlacesControls input[type="checkbox"] { width: 24px; height: 24px; }
+#roadTripPlacesControls input[type="number"] { width: 100%; min-width: 0; }
+#roadTripPlacesControls button { min-height: 44px; white-space: normal; }
+@media (max-width: 640px) { #roadTripPlacesControls .road-trip-places-panel { grid-template-columns: 1fr; padding: 16px; } }
 :root {
   color-scheme: dark;
   --bg: #070818;
